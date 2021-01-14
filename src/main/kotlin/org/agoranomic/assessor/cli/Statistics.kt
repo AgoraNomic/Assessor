@@ -131,4 +131,17 @@ fun main() {
     val adoptedWordsByAuthor = adoptedProposalsByAuthor.mapValues { (_, v) ->
         v.sumOf { it.textWords().toBigInteger() }
     }.also { writeStatistic("author_adopted_words", it) }
+
+    val endorsements =
+        resolutionsList
+            .asSequence()
+            .flatMap { it.proposalResolutions }
+            .map { it.votes }
+            .flatMap { votes -> votes.voters.flatMap { voter -> votes.voteDescriptionsFor(voter) } }
+            .filterNotNull()
+            .filter { it.kind == "endorsement" }
+            .groupBy { it.parameters.getValue("endorsee") }
+            .mapKeys { (name, _) -> Person(name = name) }
+            .mapValuesToCounts()
+            .also { writeStatistic("endorsement_counts", it) }
 }
