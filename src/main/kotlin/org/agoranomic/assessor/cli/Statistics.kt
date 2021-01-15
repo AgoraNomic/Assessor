@@ -157,4 +157,11 @@ fun main() {
             .groupBy { it.parameters.getValue("endorsee") }
             .mapValuesToCounts()
             .also { writeStatistic("endorsement_counts", it) }
+
+    val votesByVoter =
+        allVoters
+            .associateWith { voter ->
+                proposalResolutions.count { resolution -> resolution.votes.voters.any { it.name == voter } }
+            }
+            .also { writeStatistic("voter_votes", it) }
 }
