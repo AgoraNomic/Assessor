@@ -19,17 +19,6 @@ import java.nio.file.StandardOpenOption
 
 private val FILE_CHARSET = Charsets.UTF_8
 
-private fun ProposalSet.authorCountMap(): Map<Person, Int> {
-    return this.map { it.author }.toSet().associateWith { person -> this.count { it.author == person } }
-}
-
-private fun ProposalSet.coauthorCountMap(): Map<Person, Int> {
-    return this
-        .flatMap { it.coauthors }
-        .toSet()
-        .associateWith { person -> this.count { it.coauthors.contains(person) } }
-}
-
 @JvmName("writeStatisticBigDecimal")
 private fun writeStatistic(name: String, statistic: Map<String, BigDecimal>) {
     Files.writeString(
