@@ -2,6 +2,7 @@ package org.agoranomic.assessor.cli
 
 import org.agoranomic.assessor.decisions.findAssessments
 import org.agoranomic.assessor.lib.Person
+import org.agoranomic.assessor.lib.Persons
 import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
@@ -115,6 +116,8 @@ fun main() {
 
     val allAuthors = writtenCountsByAuthor.keys
     val allCoauthors = writtenCountsByCoauthor.keys
+
+    val allVoters = Persons(proposalResolutions.asSequence().flatMap { it.votes.voters }.toSet())
 
     val adoptedCountsByAuthor =
         adoptedProposalsByAuthor.mapValuesToCounts().also { writeStatistic("author_adopted", it) }
