@@ -91,12 +91,14 @@ fun main() {
     val proposalsByAuthor = proposals.groupByAuthor()
     val proposalsByCoauthor = proposals.groupByCoauthor()
 
-    val proposalResolutions = proposals.associateWith { proposal ->
+    val proposalResolutionsByNumber = proposals.associateWith { proposal ->
         resolutionsList.filter { it.proposals.contains(proposal.number) }.map { it.resolutionOf(proposal.number) }
     }
 
+    val proposalResolutions = proposalResolutionsByNumber.values.flatten()
+
     val adoptedProposals =
-        proposalResolutions
+        proposalResolutionsByNumber
             .entries
             .filter { (_, resolutions) -> resolutions.any { it.result == ProposalResult.ADOPTED } }
             .map { it.key }
@@ -133,9 +135,8 @@ fun main() {
     }.also { writeStatistic("author_adopted_words", it) }
 
     val endorsements =
-        resolutionsList
+        proposalResolutions
             .asSequence()
-            .flatMap { it.proposalResolutions }
             .map { it.votes }
             .flatMap { votes -> votes.voters.flatMap { voter -> votes.voteDescriptionsFor(voter) } }
             .filterNotNull()
