@@ -24,7 +24,7 @@ private val FILE_CHARSET = Charsets.UTF_8
 private fun writeStatistic(name: String, statistic: List<Pair<Person, BigDecimal>>) {
     Files.writeString(
         Path.of("$name.txt"),
-        statistic.sortedBy { it.first.name }.joinToString("\n") { "${it.first.name}: ${it.second}" },
+        statistic.joinToString("\n") { "${it.first.name}: ${it.second}" },
         FILE_CHARSET,
         StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING,
@@ -104,6 +104,10 @@ private fun Map<Person, List<ResolutionData>>.mapToResolutionVoteToResultRates(
     }
 }
 
+private fun <K, V> Iterable<Map.Entry<K, V>>.mapToPairs(): List<Pair<K, V>> {
+    return map { it.toPair() }
+}
+
 fun main() {
     val resolutionsList = findAssessments().map { resolve(it) }
 
@@ -135,43 +139,77 @@ fun main() {
     val writtenCountsByAuthor =
         proposalsByAuthor
             .mapValuesToCounts()
-            .also { writeStatistic("author_written", it) }
+            .also { stat ->
+                writeStatistic(
+                    "author_written",
+                    stat.entries.sortedByDescending { it.value }.mapToPairs(),
+                )
+            }
 
     val writtenCountsByCoauthor =
         proposalsByCoauthor
             .mapValuesToCounts()
-            .also { writeStatistic("coauthor_written", it) }
+            .also { stat ->
+                writeStatistic(
+                    "coauthor_written",
+                    stat.entries.sortedByDescending { it.value }.mapToPairs(),
+                )
+            }
+
+    fun <V> Iterable<Map.Entry<Person, V>>.sortedByAuthoredCount(): List<Map.Entry<Person, V>> {
+        return sortedByDescending { writtenCountsByAuthor.getValue(it.key) }
+    }
+
+    fun <V> Iterable<Map.Entry<Person, V>>.sortedByCoauthoredCount(): List<Map.Entry<Person, V>> {
+        return sortedByDescending { writtenCountsByCoauthor.getValue(it.key) }
+    }
 
     val adoptedCountsByAuthor =
         adoptedProposalsByAuthor
             .mapValuesToCounts()
-            .also { writeStatistic("author_adopted", it) }
+            .also { stat ->
+                writeStatistic(
+                    "author_adopted",
+                    stat.entries.sortedByAuthoredCount().mapToPairs(),
+                )
+            }
 
     val adoptedCountsByCoauthor =
         adoptedProposalsByCoauthor
             .mapValuesToCounts()
-            .also { writeStatistic("coauthor_adopted", it) }
+            .also { stat ->
+                writeStatistic(
+                    "coauthor_adopted",
+                    stat.entries.sortedByCoauthoredCount().mapToPairs(),
+                )
+            }
 
     val adoptedRateByAuthor =
         allAuthors
             .associateWith {
                 (adoptedCountsByAuthor[it] ?: 0).toDouble() / (writtenCountsByAuthor.getValue(it)).toDouble()
             }
-            .also { writeStatistic("author_adopted_rate", it) }
+            .also { stat ->
+                writeStatistic("author_adopted_rate", stat.entries.sortedByAuthoredCount().mapToPairs())
+            }
 
     val adoptedRateByCoauthor =
         allCoauthors
             .associateWith {
                 (adoptedCountsByCoauthor[it] ?: 0).toDouble() / (writtenCountsByCoauthor.getValue(it)).toDouble()
             }
-            .also { writeStatistic("coauthor_adopted_rate", it) }
+            .also { stat ->
+                writeStatistic("coauthor_adopted_rate", stat.entries.sortedByCoauthoredCount().mapToPairs())
+            }
 
     val adoptedWordsByAuthor =
         adoptedProposalsByAuthor
             .mapValues { (_, v) ->
                 v.sumOf { it.textWords().toBigInteger() }
             }
-            .also { writeStatistic("author_adopted_words", it) }
+            .also { stat ->
+                writeStatistic("author_adopted_words", stat.entries.sortedByAuthoredCount().mapToPairs())
+            }
 
     val endorsements =
         proposalResolutions
@@ -183,7 +221,9 @@ fun main() {
             .groupBy { it.parameters.getValue("endorsee") }
             .mapKeys { (name, _) -> Person(name = name) }
             .mapValuesToCounts()
-            .also { writeStatistic("voter_endorsement_counts", it) }
+            .also { stat ->
+                writeStatistic("voter_endorsement_counts", stat.entries.sortedBy { it.key.name }.mapToPairs())
+            }
 
     val resolutionsByVoter =
         allVoters
@@ -194,7 +234,13 @@ fun main() {
     val votesByVoter =
         resolutionsByVoter
             .mapValuesToCounts()
-            .also { writeStatistic("voter_votes", it) }
+            .also { stat ->
+                writeStatistic("voter_votes", stat.entries.sortedByDescending { it.value }.mapToPairs())
+            }
+
+    fun <V> Iterable<Map.Entry<Person, V>>.sortedByVoteCount(): List<Map.Entry<Person, V>> {
+        return sortedByDescending { votesByVoter.getValue(it.key) }
+    }
 
     val votesPresentByVoter =
         resolutionsByVoter
@@ -203,14 +249,18 @@ fun main() {
                     resolution.votes.voteFor(voter) == VoteKind.PRESENT
                 }
             }
-            .also { writeStatistic("voter_votes_present", it) }
+            .also { stat ->
+                writeStatistic("voter_votes_present", stat.entries.sortedByVoteCount().mapToPairs())
+            }
 
     val votesPresentRateByVoter =
         votesPresentByVoter
             .mapValues { (name, presentVotes) ->
                 presentVotes.toDouble() / votesByVoter.getValue(name).toDouble()
             }
-            .also { writeStatistic("voter_votes_present_rate", it) }
+            .also { stat ->
+                writeStatistic("voter_votes_present_rate", stat.entries.sortedByVoteCount().mapToPairs())
+            }
 
     val voterAgreementRate =
         resolutionsByVoter
@@ -218,7 +268,9 @@ fun main() {
                 targetResultFor = ProposalResult.ADOPTED,
                 targetResultAgainst = ProposalResult.REJECTED,
             )
-            .also { writeStatistic("voter_agreement_rate", it) }
+            .also { stat ->
+                writeStatistic("voter_agreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
+            }
 
     val voterDisagreementRate =
         resolutionsByVoter
@@ -226,7 +278,9 @@ fun main() {
                 targetResultFor = ProposalResult.REJECTED,
                 targetResultAgainst = ProposalResult.ADOPTED,
             )
-            .also { writeStatistic("voter_disagreement_rate", it) }
+            .also { stat ->
+                writeStatistic("voter_disagreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
+            }
 
     val voterAverageVotingStrength =
         resolutionsByVoter
@@ -235,5 +289,7 @@ fun main() {
                     it.votingStrengths.trailForPerson(voter).final.raw
                 }.intValueExact().toDouble() / resolutions.count().toDouble()
             }
-            .also { writeStatistic("voter_average_strength", it) }
+            .also { stat ->
+                writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
+            }
 }
