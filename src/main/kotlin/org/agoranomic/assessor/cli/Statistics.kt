@@ -8,7 +8,9 @@ import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toProposalSet
 import org.agoranomic.assessor.lib.resolve.ProposalResult
+import org.agoranomic.assessor.lib.resolve.ResolutionData
 import org.agoranomic.assessor.lib.resolve.resolve
+import org.agoranomic.assessor.lib.vote.VoteKind
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.math.RoundingMode
@@ -76,6 +78,19 @@ private fun <K, VE> Map<K, Iterable<VE>>.mapValuesToCounts(): Map<K, Int> {
 
 private fun <V> Map<Person, V>.mapKeysToNames(): Map<String, V> {
     return mapKeys { (k, _) -> k.name }
+}
+
+private fun Map<String, List<ResolutionData>>.mapToResolutionVoteToResultRates(
+    targetResultFor: ProposalResult,
+    targetResultAgainst: ProposalResult,
+): Map<String, Double> {
+    return mapValues { (name, resolutions) ->
+        resolutions.count { resolution ->
+            val vote = resolution.votes.voteFor(Person(name = name))
+            (vote == VoteKind.FOR && resolution.result == targetResultFor) ||
+                    (vote == VoteKind.AGAINST && resolution.result == targetResultAgainst)
+        }.toDouble() / resolutions.count().toDouble()
+    }
 }
 
 fun main() {
@@ -158,10 +173,30 @@ fun main() {
             .mapValuesToCounts()
             .also { writeStatistic("endorsement_counts", it) }
 
-    val votesByVoter =
+    val resolutionsByVoter =
         allVoters
             .associateWith { voter ->
-                proposalResolutions.count { resolution -> resolution.votes.voters.any { it.name == voter } }
+                proposalResolutions.filter { resolution -> resolution.votes.voters.any { it.name == voter } }
             }
+
+    val votesByVoter =
+        resolutionsByVoter
+            .mapValuesToCounts()
             .also { writeStatistic("voter_votes", it) }
+
+    val voterAgreementRate =
+        resolutionsByVoter
+            .mapToResolutionVoteToResultRates(
+                targetResultFor = ProposalResult.ADOPTED,
+                targetResultAgainst = ProposalResult.REJECTED,
+            )
+            .also { writeStatistic("voter_agreement_rate", it) }
+
+    val voterDisagreementRate =
+        resolutionsByVoter
+            .mapToResolutionVoteToResultRates(
+                targetResultFor = ProposalResult.REJECTED,
+                targetResultAgainst = ProposalResult.ADOPTED,
+            )
+            .also { writeStatistic("voter_disagreement_rate", it) }
 }
