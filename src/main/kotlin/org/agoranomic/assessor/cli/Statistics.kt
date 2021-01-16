@@ -21,37 +21,52 @@ import java.nio.file.StandardOpenOption
 private val FILE_CHARSET = Charsets.UTF_8
 
 @JvmName("writeStatisticBigDecimal")
-private fun writeStatistic(name: String, statistic: Map<String, BigDecimal>) {
+private fun writeStatistic(name: String, statistic: List<Pair<String, BigDecimal>>) {
     Files.writeString(
         Path.of("$name.txt"),
-        statistic.entries.sortedBy { it.key }.joinToString("\n") { "${it.key}: ${it.value}" },
+        statistic.sortedBy { it.first }.joinToString("\n") { "${it.first}: ${it.second}" },
         FILE_CHARSET,
         StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING,
     )
 }
 
+@JvmName("writeStatisticBigDecimal")
+private fun writeStatistic(name: String, statistic: Map<String, BigDecimal>) =
+    writeStatistic(name, statistic.entries.map { it.toPair() })
+
 @JvmName("writeStatisticBigInteger")
-private fun writeStatistic(name: String, statistic: Map<String, BigInteger>) {
+private fun writeStatistic(name: String, statistic: List<Pair<String, BigInteger>>) {
     // For some reason overload resolution fails if this variable doesn't exist /shrug
-    val transformed = statistic.mapValues { (_, v) -> v.toBigDecimal() }
+    val transformed = statistic.map { it.first to it.second.toBigDecimal() }
+    writeStatistic(name, transformed)
+}
+
+@JvmName("writeStatisticBigInteger")
+private fun writeStatistic(name: String, statistic: Map<String, BigInteger>) =
+    writeStatistic(name, statistic.entries.map { it.toPair() })
+
+@JvmName("writeStatisticDouble")
+private fun writeStatistic(name: String, statistic: List<Pair<String, Double>>, scale: Int = 2) {
+    // For some reason overload resolution fails if this variable doesn't exist /shrug
+    val transformed = statistic.map { it.first to it.second.toBigDecimal().setScale(scale, RoundingMode.HALF_UP) }
     writeStatistic(name, transformed)
 }
 
 @JvmName("writeStatisticDouble")
-private fun writeStatistic(name: String, statistic: Map<String, Double>, scale: Int = 2) {
-    // For some reason overload resolution fails if this variable doesn't exist /shrug
-    val transformed = statistic.mapValues { (_, v) -> v.toBigDecimal().setScale(scale, RoundingMode.HALF_UP) }
-    writeStatistic(name, transformed)
-}
-
+private fun writeStatistic(name: String, statistic: Map<String, Double>) =
+    writeStatistic(name, statistic.entries.map { it.toPair() })
 
 @JvmName("writeStatisticInt")
-private fun writeStatistic(name: String, statistic: Map<String, Int>) {
+private fun writeStatistic(name: String, statistic: List<Pair<String, Int>>) {
     // For some reason overload resolution fails if this variable doesn't exist /shrug
-    val transformed = statistic.mapValues { (_, v) -> v.toBigInteger() }
+    val transformed = statistic.map { it.first to it.second.toBigInteger() }
     writeStatistic(name, transformed)
 }
+
+@JvmName("writeStatisticInt")
+private fun writeStatistic(name: String, statistic: Map<String, Int>) =
+    writeStatistic(name, statistic.entries.map { it.toPair() })
 
 private val WHITESPACE_REGEX = Regex("\\s")
 
@@ -171,7 +186,7 @@ fun main() {
             .filter { it.kind == "endorsement" }
             .groupBy { it.parameters.getValue("endorsee") }
             .mapValuesToCounts()
-            .also { writeStatistic("endorsement_counts", it) }
+            .also { writeStatistic("voter_endorsement_counts", it) }
 
     val resolutionsByVoter =
         allVoters
