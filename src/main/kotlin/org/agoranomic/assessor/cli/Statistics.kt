@@ -230,4 +230,13 @@ fun main() {
                 targetResultAgainst = ProposalResult.ADOPTED,
             )
             .also { writeStatistic("voter_disagreement_rate", it) }
+
+    val voterAverageVotingStrength =
+        resolutionsByVoter
+            .mapValues { (name, resolutions) ->
+                resolutions.sumOf {
+                    it.votingStrengths.trailForPerson(Person(name = name)).final.raw
+                }.intValueExact().toDouble() / resolutions.count().toDouble()
+            }
+            .also { writeStatistic("voter_average_strength", it) }
 }
