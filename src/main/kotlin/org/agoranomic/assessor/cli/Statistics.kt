@@ -21,10 +21,10 @@ import java.nio.file.StandardOpenOption
 private val FILE_CHARSET = Charsets.UTF_8
 
 @JvmName("writeStatisticBigDecimal")
-private fun writeStatistic(name: String, statistic: List<Pair<String, BigDecimal>>) {
+private fun writeStatistic(name: String, statistic: List<Pair<Person, BigDecimal>>) {
     Files.writeString(
         Path.of("$name.txt"),
-        statistic.sortedBy { it.first }.joinToString("\n") { "${it.first}: ${it.second}" },
+        statistic.sortedBy { it.first.name }.joinToString("\n") { "${it.first.name}: ${it.second}" },
         FILE_CHARSET,
         StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING,
@@ -32,40 +32,40 @@ private fun writeStatistic(name: String, statistic: List<Pair<String, BigDecimal
 }
 
 @JvmName("writeStatisticBigDecimal")
-private fun writeStatistic(name: String, statistic: Map<String, BigDecimal>) =
+private fun writeStatistic(name: String, statistic: Map<Person, BigDecimal>) =
     writeStatistic(name, statistic.entries.map { it.toPair() })
 
 @JvmName("writeStatisticBigInteger")
-private fun writeStatistic(name: String, statistic: List<Pair<String, BigInteger>>) {
+private fun writeStatistic(name: String, statistic: List<Pair<Person, BigInteger>>) {
     // For some reason overload resolution fails if this variable doesn't exist /shrug
     val transformed = statistic.map { it.first to it.second.toBigDecimal() }
     writeStatistic(name, transformed)
 }
 
 @JvmName("writeStatisticBigInteger")
-private fun writeStatistic(name: String, statistic: Map<String, BigInteger>) =
+private fun writeStatistic(name: String, statistic: Map<Person, BigInteger>) =
     writeStatistic(name, statistic.entries.map { it.toPair() })
 
 @JvmName("writeStatisticDouble")
-private fun writeStatistic(name: String, statistic: List<Pair<String, Double>>, scale: Int = 2) {
+private fun writeStatistic(name: String, statistic: List<Pair<Person, Double>>, scale: Int = 2) {
     // For some reason overload resolution fails if this variable doesn't exist /shrug
     val transformed = statistic.map { it.first to it.second.toBigDecimal().setScale(scale, RoundingMode.HALF_UP) }
     writeStatistic(name, transformed)
 }
 
 @JvmName("writeStatisticDouble")
-private fun writeStatistic(name: String, statistic: Map<String, Double>) =
+private fun writeStatistic(name: String, statistic: Map<Person, Double>) =
     writeStatistic(name, statistic.entries.map { it.toPair() })
 
 @JvmName("writeStatisticInt")
-private fun writeStatistic(name: String, statistic: List<Pair<String, Int>>) {
+private fun writeStatistic(name: String, statistic: List<Pair<Person, Int>>) {
     // For some reason overload resolution fails if this variable doesn't exist /shrug
     val transformed = statistic.map { it.first to it.second.toBigInteger() }
     writeStatistic(name, transformed)
 }
 
 @JvmName("writeStatisticInt")
-private fun writeStatistic(name: String, statistic: Map<String, Int>) =
+private fun writeStatistic(name: String, statistic: Map<Person, Int>) =
     writeStatistic(name, statistic.entries.map { it.toPair() })
 
 private val WHITESPACE_REGEX = Regex("\\s")
@@ -91,17 +91,13 @@ private fun <K, VE> Map<K, Iterable<VE>>.mapValuesToCounts(): Map<K, Int> {
     return mapValues { (_, v) -> v.count() }
 }
 
-private fun <V> Map<Person, V>.mapKeysToNames(): Map<String, V> {
-    return mapKeys { (k, _) -> k.name }
-}
-
-private fun Map<String, List<ResolutionData>>.mapToResolutionVoteToResultRates(
+private fun Map<Person, List<ResolutionData>>.mapToResolutionVoteToResultRates(
     targetResultFor: ProposalResult,
     targetResultAgainst: ProposalResult,
-): Map<String, Double> {
-    return mapValues { (name, resolutions) ->
+): Map<Person, Double> {
+    return mapValues { (voter, resolutions) ->
         resolutions.count { resolution ->
-            val vote = resolution.votes.voteFor(Person(name = name))
+            val vote = resolution.votes.voteFor(voter)
             (vote == VoteKind.FOR && resolution.result == targetResultFor) ||
                     (vote == VoteKind.AGAINST && resolution.result == targetResultAgainst)
         }.toDouble() / resolutions.count().toDouble()
@@ -119,12 +115,12 @@ fun main() {
 
     val proposalResolutions = proposalResolutionsByNumber.values.flatten()
 
-    val proposalsByAuthor = proposals.groupByAuthor().mapKeysToNames()
-    val proposalsByCoauthor = proposals.groupByCoauthor().mapKeysToNames()
+    val proposalsByAuthor = proposals.groupByAuthor()
+    val proposalsByCoauthor = proposals.groupByCoauthor()
 
     val allAuthors = proposalsByAuthor.keys
     val allCoauthors = proposalsByCoauthor.keys
-    val allVoters = proposalResolutions.asSequence().flatMap { it.votes.voters }.toSet().map { it.name }
+    val allVoters = proposalResolutions.asSequence().flatMap { it.votes.voters }.toSet()
 
     val adoptedProposals =
         proposalResolutionsByNumber
@@ -133,8 +129,8 @@ fun main() {
             .map { it.key }
             .toProposalSet()
 
-    val adoptedProposalsByAuthor = adoptedProposals.groupByAuthor().mapKeysToNames()
-    val adoptedProposalsByCoauthor = adoptedProposals.groupByCoauthor().mapKeysToNames()
+    val adoptedProposalsByAuthor = adoptedProposals.groupByAuthor()
+    val adoptedProposalsByCoauthor = adoptedProposals.groupByCoauthor()
 
     val writtenCountsByAuthor =
         proposalsByAuthor
@@ -185,13 +181,14 @@ fun main() {
             .filterNotNull()
             .filter { it.kind == "endorsement" }
             .groupBy { it.parameters.getValue("endorsee") }
+            .mapKeys { (name, _) -> Person(name = name) }
             .mapValuesToCounts()
             .also { writeStatistic("voter_endorsement_counts", it) }
 
     val resolutionsByVoter =
         allVoters
             .associateWith { voter ->
-                proposalResolutions.filter { resolution -> resolution.votes.voters.any { it.name == voter } }
+                proposalResolutions.filter { resolution -> resolution.votes.voters.contains(voter) }
             }
 
     val votesByVoter =
@@ -201,9 +198,9 @@ fun main() {
 
     val votesPresentByVoter =
         resolutionsByVoter
-            .mapValues { (name, resolutions) ->
+            .mapValues { (voter, resolutions) ->
                 resolutions.count { resolution ->
-                    resolution.votes.voteFor(Person(name = name)) == VoteKind.PRESENT
+                    resolution.votes.voteFor(voter) == VoteKind.PRESENT
                 }
             }
             .also { writeStatistic("voter_votes_present", it) }
@@ -233,9 +230,9 @@ fun main() {
 
     val voterAverageVotingStrength =
         resolutionsByVoter
-            .mapValues { (name, resolutions) ->
+            .mapValues { (voter, resolutions) ->
                 resolutions.sumOf {
-                    it.votingStrengths.trailForPerson(Person(name = name)).final.raw
+                    it.votingStrengths.trailForPerson(voter).final.raw
                 }.intValueExact().toDouble() / resolutions.count().toDouble()
             }
             .also { writeStatistic("voter_average_strength", it) }
