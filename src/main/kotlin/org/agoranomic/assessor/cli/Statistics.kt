@@ -184,6 +184,22 @@ fun main() {
             .mapValuesToCounts()
             .also { writeStatistic("voter_votes", it) }
 
+    val votesPresentByVoter =
+        resolutionsByVoter
+            .mapValues { (name, resolutions) ->
+                resolutions.count { resolution ->
+                    resolution.votes.voteFor(Person(name = name)) == VoteKind.PRESENT
+                }
+            }
+            .also { writeStatistic("voter_votes_present", it) }
+
+    val votesPresentRateByVoter =
+        votesPresentByVoter
+            .mapValues { (name, presentVotes) ->
+                presentVotes.toDouble() / votesByVoter.getValue(name).toDouble()
+            }
+            .also { writeStatistic("voter_votes_present_rate", it) }
+
     val voterAgreementRate =
         resolutionsByVoter
             .mapToResolutionVoteToResultRates(
