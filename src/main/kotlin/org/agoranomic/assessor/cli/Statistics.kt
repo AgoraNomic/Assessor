@@ -1,5 +1,7 @@
 package org.agoranomic.assessor.cli
 
+import jetbrains.letsPlot.bistro.corr.CorrPlot
+import jetbrains.letsPlot.export.ggsave
 import org.agoranomic.assessor.decisions.findAssessments
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.proposal.Proposal
@@ -292,4 +294,27 @@ fun main() {
             .also { stat ->
                 writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
             }
+
+    ggsave(
+        CorrPlot(
+            data = allVoters
+                .sortedByDescending { votesByVoter.getValue(it) }
+                .associateWith { voter ->
+                    proposalResolutions.map { resolution ->
+                        if (resolution.votes.voters.contains(voter))
+                            when (resolution.votes.voteFor(voter)) {
+                                VoteKind.FOR -> 1
+                                VoteKind.PRESENT -> 0
+                                VoteKind.AGAINST -> -1
+                            }
+                        else
+                            null
+                    }
+                }
+                .mapKeys { (voter, _) -> voter.name },
+            title = "Voter agreement",
+        ).tiles().build(),
+        filename = "voter_agreement.svg",
+        path = "graphs",
+    )
 }
