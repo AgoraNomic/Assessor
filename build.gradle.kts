@@ -22,6 +22,12 @@ dependencies {
     implementation("io.github.classgraph:classgraph:4.8.46")
     implementation("io.github.random-internet-cat:kotlin-utils:1.1.0")
 
+    // Dependencies for statistics
+    implementation("org.jetbrains.lets-plot:lets-plot-batik:1.5.6")
+    implementation("org.jetbrains.lets-plot:lets-plot-image-export:1.5.6")
+    api("org.jetbrains.lets-plot:lets-plot-common:1.5.6")
+    api("org.jetbrains.lets-plot-kotlin:lets-plot-kotlin-api:1.2.0")
+
     testImplementation(kotlin("test"))
     testImplementation(kotlin("test-junit5"))
     testImplementation(group = "org.junit.jupiter", name = "junit-jupiter", version = "5.5.2")
