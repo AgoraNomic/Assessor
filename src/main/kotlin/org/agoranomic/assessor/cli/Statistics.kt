@@ -1,13 +1,13 @@
 package org.agoranomic.assessor.cli
 
+import jetbrains.letsPlot.*
 import jetbrains.letsPlot.bistro.corr.CorrPlot
 import jetbrains.letsPlot.export.ggsave
+import jetbrains.letsPlot.geom.geom_bar
+import jetbrains.letsPlot.geom.geom_hline
 import jetbrains.letsPlot.geom.geom_tile
-import jetbrains.letsPlot.ggsize
-import jetbrains.letsPlot.lets_plot
-import jetbrains.letsPlot.scale.scale_fill_gradient2
-import jetbrains.letsPlot.scale.scale_x_discrete
-import jetbrains.letsPlot.scale.scale_y_discrete
+import jetbrains.letsPlot.sampling.sampling_none
+import jetbrains.letsPlot.scale.*
 import org.agoranomic.assessor.decisions.findAssessments
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.proposal.Proposal
@@ -114,6 +114,18 @@ private fun Map<Person, List<ResolutionData>>.mapToResolutionVoteToResultRates(
 
 private fun <K, V> Iterable<Map.Entry<K, V>>.mapToPairs(): List<Pair<K, V>> {
     return map { it.toPair() }
+}
+
+private fun countVotesOfKindByVoter(
+    voteKind: VoteKind,
+    voters: Set<Person>,
+    resolutions: List<ResolutionData>,
+): Map<Person, Int> {
+    return voters.associateWith { voter ->
+        resolutions.count { resolution ->
+            resolution.votes.voters.contains(voter) && (resolution.votes.voteFor(voter) == voteKind)
+        }
+    }
 }
 
 fun main() {
@@ -250,22 +262,26 @@ fun main() {
         return sortedByDescending { votesByVoter.getValue(it.key) }
     }
 
+    val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
+        countVotesOfKindByVoter(kind, allVoters, proposalResolutions)
+    }
+
     val votesPresentByVoter =
-        resolutionsByVoter
-            .mapValues { (voter, resolutions) ->
-                resolutions.count { resolution ->
-                    resolution.votes.voteFor(voter) == VoteKind.PRESENT
-                }
-            }
+        voteCountsByVoterByVoteKind.getValue(VoteKind.PRESENT)
             .also { stat ->
                 writeStatistic("voter_votes_present", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    val votesPresentRateByVoter =
-        votesPresentByVoter
-            .mapValues { (name, presentVotes) ->
-                presentVotes.toDouble() / votesByVoter.getValue(name).toDouble()
+    val voteCountRatesByVoterByVoteKind =
+        voteCountsByVoterByVoteKind
+            .mapValues { (voteKind, countsMap) ->
+                countsMap.mapValues { (voter, count) ->
+                    count.toDouble() / votesByVoter.getValue(voter).toDouble()
+                }
             }
+
+    val votesPresentRateByVoter =
+        voteCountRatesByVoterByVoteKind.getValue(VoteKind.PRESENT)
             .also { stat ->
                 writeStatistic("voter_votes_present_rate", stat.entries.sortedByVoteCount().mapToPairs())
             }
@@ -358,6 +374,65 @@ fun main() {
     val authorDataList = voterAuthorAgreementRates.map { it.first.author }
     val voterDataList = voterAuthorAgreementRates.map { it.first.voter }
     val rateDataList = voterAuthorAgreementRates.map { it.second }
+
+    val sortedVoters = allVoters.sortedByDescending { votesByVoter.getValue(it) }
+
+    data class VoterVoteKindCountSpecification(
+        val voter: Person,
+        val voteCount: Int,
+        val kind: VoteKind,
+    )
+
+    val voteKindOrder = listOf(VoteKind.FOR, VoteKind.AGAINST, VoteKind.PRESENT)
+
+    val voterKindSpecificationList =
+        allVoters
+            .flatMap { voter ->
+                VoteKind.values().map { voteKind ->
+                    VoterVoteKindCountSpecification(
+                        voter = voter,
+                        kind = voteKind,
+                        voteCount = voteCountsByVoterByVoteKind.getValue(voteKind).getValue(voter),
+                    )
+                }
+            }
+            .sortedBy { voteKindOrder.indexOf(it.kind) }
+
+    val voterKindData = mapOf(
+        "voter" to voterKindSpecificationList.map { it.voter.name },
+        "count" to voterKindSpecificationList.map { it.voteCount },
+        "kind" to voterKindSpecificationList.map { it.kind.name },
+    )
+
+    ggsave(
+        lets_plot(voterKindData) +
+                geom_bar(
+                    stat = Stat.identity,
+                    sampling = sampling_none,
+                    position = Pos.stack,
+                ) {
+                    x = "voter"
+                    y = "count"
+                    fill = "kind"
+                } +
+                ggsize(width = allVoters.size * 45 + 10, height = 500) +
+                scale_fill_discrete(
+                    name = "Vote Kind",
+                    limits = listOf("FOR", "AGAINST", "PRESENT")
+                ) +
+                scale_x_discrete(
+                    name = "Voter",
+                    limits = sortedVoters.map { it.name },
+                ) +
+                scale_y_continuous(
+                    name = "Votes",
+                    limits = 0 to proposalResolutions.size,
+                ) +
+                theme().legendPosition_top() +
+                geom_hline(yintercept = proposalResolutions.size, linetype = "dashed", color = "red"),
+        filename = "vote_kinds.svg",
+        path = "graphs",
+    )
 
     ggsave(
         lets_plot() +
