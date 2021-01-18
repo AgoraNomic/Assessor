@@ -291,6 +291,60 @@ private fun writeVoterMutualAgreementGraph(
     )
 }
 
+private fun writeVoteKindCountsStat(
+    voters: List<Person>,
+    voteCountsByVoterByVoteKind: Map<VoteKind, Map<Person, Int>>,
+) {
+    writeStatistic(
+        "voter_votes_present",
+        voters.map { it to voteCountsByVoterByVoteKind.getValue(VoteKind.PRESENT).getValue(it) }
+    )
+}
+
+private fun writeVoteKindRatesStat(
+    voters: List<Person>,
+    voteCountRatesByVoterByVoteKind: Map<VoteKind, Map<Person, Double>>,
+) {
+    writeStatistic(
+        "voter_votes_present_rate",
+        voters.map { it to voteCountRatesByVoterByVoteKind.getValue(VoteKind.PRESENT).getValue(it) },
+    )
+}
+
+private fun writeVoteKindData(
+    voters: List<Person>,
+    voteCountsByVoter: Map<Person, Int>,
+    proposalResolutions: List<ResolutionData>,
+) {
+    val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
+        countVotesOfKindByVoter(kind, voters.toSet(), proposalResolutions)
+    }
+
+    val voteCountRatesByVoterByVoteKind =
+        voteCountsByVoterByVoteKind
+            .mapValues { (voteKind, countsMap) ->
+                countsMap.mapValues { (voter, count) ->
+                    count.toDouble() / voteCountsByVoter.getValue(voter).toDouble()
+                }
+            }
+
+    writeVoteKindCountsStat(
+        voters = voters,
+        voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
+    )
+
+    writeVoteKindRatesStat(
+        voters = voters,
+        voteCountRatesByVoterByVoteKind = voteCountRatesByVoterByVoteKind,
+    )
+
+    writeVoteKindsByVoterGraph(
+        voters = voters,
+        voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
+        proposalResolutionsCount = proposalResolutions.size,
+    )
+}
+
 fun main() {
     val assessmentResolutions = findAssessments().map { resolve(it) }
 
@@ -328,6 +382,8 @@ fun main() {
                     stat.entries.sortedByDescending { it.value }.mapToPairs(),
                 )
             }
+
+    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
 
     val writtenCountsByCoauthor =
         proposalsByCoauthor
@@ -421,33 +477,11 @@ fun main() {
                 writeStatistic("voter_votes", stat.entries.sortedByDescending { it.value }.mapToPairs())
             }
 
+    val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
+
     fun <V> Iterable<Map.Entry<Person, V>>.sortedByVoteCount(): List<Map.Entry<Person, V>> {
         return sortedByDescending { voteCountsByVoter.getValue(it.key) }
     }
-
-    val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
-        countVotesOfKindByVoter(kind, allVoters, proposalResolutions)
-    }
-
-    val votesPresentByVoter =
-        voteCountsByVoterByVoteKind.getValue(VoteKind.PRESENT)
-            .also { stat ->
-                writeStatistic("voter_votes_present", stat.entries.sortedByVoteCount().mapToPairs())
-            }
-
-    val voteCountRatesByVoterByVoteKind =
-        voteCountsByVoterByVoteKind
-            .mapValues { (voteKind, countsMap) ->
-                countsMap.mapValues { (voter, count) ->
-                    count.toDouble() / voteCountsByVoter.getValue(voter).toDouble()
-                }
-            }
-
-    val votesPresentRateByVoter =
-        voteCountRatesByVoterByVoteKind.getValue(VoteKind.PRESENT)
-            .also { stat ->
-                writeStatistic("voter_votes_present_rate", stat.entries.sortedByVoteCount().mapToPairs())
-            }
 
     val voterAgreementRate =
         proposalResolutionsByVoter
@@ -480,19 +514,12 @@ fun main() {
                 writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
-    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
-
     writeVoterMutualAgreementGraph(
         voters = sortedVoters,
         proposalResolutions = proposalResolutions,
     )
 
-    writeVoteKindsByVoterGraph(
-        voters = sortedVoters,
-        voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
-        proposalResolutionsCount = proposalResolutions.size,
-    )
+    writeVoteKindData(sortedVoters, voteCountsByVoter, proposalResolutions)
 
     writeVoterAuthorAgreementGraph(
         voters = sortedVoters,
