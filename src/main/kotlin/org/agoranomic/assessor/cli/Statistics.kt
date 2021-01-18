@@ -292,15 +292,15 @@ private fun writeVoterMutualAgreementGraph(
 }
 
 fun main() {
-    val resolutionsList = findAssessments().map { resolve(it) }
+    val assessmentResolutions = findAssessments().map { resolve(it) }
 
-    val proposals = resolutionsList.flatMap { it.proposals }.toProposalSet()
+    val proposals = assessmentResolutions.flatMap { it.proposals }.toProposalSet()
 
-    val proposalResolutionsByNumber = proposals.associateWith { proposal ->
-        resolutionsList.filter { it.proposals.contains(proposal.number) }.map { it.resolutionOf(proposal.number) }
+    val resolutionsByProposal = proposals.associateWith { proposal ->
+        assessmentResolutions.filter { it.proposals.contains(proposal.number) }.map { it.resolutionOf(proposal.number) }
     }
 
-    val proposalResolutions = proposalResolutionsByNumber.values.flatten()
+    val proposalResolutions = resolutionsByProposal.values.flatten()
 
     val proposalsByAuthor = proposals.groupByAuthor()
     val proposalsByCoauthor = proposals.groupByCoauthor()
@@ -310,7 +310,7 @@ fun main() {
     val allVoters = proposalResolutions.asSequence().flatMap { it.votes.voters }.toSet()
 
     val adoptedProposals =
-        proposalResolutionsByNumber
+        resolutionsByProposal
             .entries
             .filter { (_, resolutions) -> resolutions.any { it.result == ProposalResult.ADOPTED } }
             .map { it.key }
@@ -394,7 +394,7 @@ fun main() {
                 writeStatistic("author_adopted_words", stat.entries.sortedByAuthoredCount().mapToPairs())
             }
 
-    val endorsements =
+    val endorsementCountsByEndorsee =
         proposalResolutions
             .asSequence()
             .map { it.votes }
@@ -408,21 +408,21 @@ fun main() {
                 writeStatistic("voter_endorsement_counts", stat.entries.sortedBy { it.key.name }.mapToPairs())
             }
 
-    val resolutionsByVoter =
+    val proposalResolutionsByVoter =
         allVoters
             .associateWith { voter ->
                 proposalResolutions.filter { resolution -> resolution.votes.voters.contains(voter) }
             }
 
-    val votesByVoter =
-        resolutionsByVoter
+    val voteCountsByVoter =
+        proposalResolutionsByVoter
             .mapValuesToCounts()
             .also { stat ->
                 writeStatistic("voter_votes", stat.entries.sortedByDescending { it.value }.mapToPairs())
             }
 
     fun <V> Iterable<Map.Entry<Person, V>>.sortedByVoteCount(): List<Map.Entry<Person, V>> {
-        return sortedByDescending { votesByVoter.getValue(it.key) }
+        return sortedByDescending { voteCountsByVoter.getValue(it.key) }
     }
 
     val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
@@ -439,7 +439,7 @@ fun main() {
         voteCountsByVoterByVoteKind
             .mapValues { (voteKind, countsMap) ->
                 countsMap.mapValues { (voter, count) ->
-                    count.toDouble() / votesByVoter.getValue(voter).toDouble()
+                    count.toDouble() / voteCountsByVoter.getValue(voter).toDouble()
                 }
             }
 
@@ -450,7 +450,7 @@ fun main() {
             }
 
     val voterAgreementRate =
-        resolutionsByVoter
+        proposalResolutionsByVoter
             .mapToResolutionVoteToResultRates(
                 targetResultFor = ProposalResult.ADOPTED,
                 targetResultAgainst = ProposalResult.REJECTED,
@@ -460,7 +460,7 @@ fun main() {
             }
 
     val voterDisagreementRate =
-        resolutionsByVoter
+        proposalResolutionsByVoter
             .mapToResolutionVoteToResultRates(
                 targetResultFor = ProposalResult.REJECTED,
                 targetResultAgainst = ProposalResult.ADOPTED,
@@ -470,7 +470,7 @@ fun main() {
             }
 
     val voterAverageVotingStrength =
-        resolutionsByVoter
+        proposalResolutionsByVoter
             .mapValues { (voter, resolutions) ->
                 resolutions.sumOf {
                     it.votingStrengths.trailForPerson(voter).final.raw
@@ -480,7 +480,7 @@ fun main() {
                 writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    val sortedVoters = allVoters.sortedByDescending { votesByVoter.getValue(it) }
+    val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
     val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
 
     writeVoterMutualAgreementGraph(
@@ -497,7 +497,7 @@ fun main() {
     writeVoterAuthorAgreementGraph(
         voters = sortedVoters,
         authors = sortedAuthors,
-        resolutionsByProposal = proposalResolutionsByNumber,
-        votesByVoter = votesByVoter,
+        resolutionsByProposal = resolutionsByProposal,
+        votesByVoter = voteCountsByVoter,
     )
 }
