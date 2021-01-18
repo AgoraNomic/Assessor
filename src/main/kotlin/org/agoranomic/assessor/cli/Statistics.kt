@@ -21,6 +21,7 @@ import org.agoranomic.assessor.lib.resolve.resolve
 import org.agoranomic.assessor.lib.vote.VoteKind
 import org.agoranomic.assessor.stats.writeStatistic
 import org.agoranomic.assessor.stats.writeVoteKindData
+import org.agoranomic.assessor.stats.writeVoterResultData
 
 private val WHITESPACE_REGEX = Regex("\\s")
 
@@ -43,19 +44,6 @@ private fun ProposalSet.groupByCoauthor(): Map<Person, ImmutableProposalSet> {
 
 private fun <K, VE> Map<K, Iterable<VE>>.mapValuesToCounts(): Map<K, Int> {
     return mapValues { (_, v) -> v.count() }
-}
-
-private fun Map<Person, List<ResolutionData>>.mapToResolutionVoteToResultRates(
-    targetResultFor: ProposalResult,
-    targetResultAgainst: ProposalResult,
-): Map<Person, Double> {
-    return mapValues { (voter, resolutions) ->
-        resolutions.count { resolution ->
-            val vote = resolution.votes.voteFor(voter)
-            (vote == VoteKind.FOR && resolution.result == targetResultFor) ||
-                    (vote == VoteKind.AGAINST && resolution.result == targetResultAgainst)
-        }.toDouble() / resolutions.count().toDouble()
-    }
 }
 
 private fun <K, V> Iterable<Map.Entry<K, V>>.mapToPairs(): List<Pair<K, V>> {
@@ -300,26 +288,6 @@ fun main() {
         return sortedByDescending { voteCountsByVoter.getValue(it.key) }
     }
 
-    val resultAgreementRateByVoter =
-        proposalResolutionsByVoter
-            .mapToResolutionVoteToResultRates(
-                targetResultFor = ProposalResult.ADOPTED,
-                targetResultAgainst = ProposalResult.REJECTED,
-            )
-            .also { stat ->
-                writeStatistic("voter_result_agreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
-            }
-
-    val resultDisagreementRateByVoter =
-        proposalResolutionsByVoter
-            .mapToResolutionVoteToResultRates(
-                targetResultFor = ProposalResult.REJECTED,
-                targetResultAgainst = ProposalResult.ADOPTED,
-            )
-            .also { stat ->
-                writeStatistic("voter_result_disagreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
-            }
-
     val averageVotingStrengthByVoter =
         proposalResolutionsByVoter
             .mapValues { (voter, resolutions) ->
@@ -330,6 +298,11 @@ fun main() {
             .also { stat ->
                 writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
             }
+
+    writeVoterResultData(
+        voters = sortedVoters,
+        proposalResolutionsByVoter = proposalResolutionsByVoter,
+    )
 
     writeVoterMutualAgreementGraph(
         voters = sortedVoters,
