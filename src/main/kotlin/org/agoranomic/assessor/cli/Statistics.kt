@@ -300,27 +300,27 @@ fun main() {
         return sortedByDescending { voteCountsByVoter.getValue(it.key) }
     }
 
-    val voterAgreementRate =
+    val resultAgreementRateByVoter =
         proposalResolutionsByVoter
             .mapToResolutionVoteToResultRates(
                 targetResultFor = ProposalResult.ADOPTED,
                 targetResultAgainst = ProposalResult.REJECTED,
             )
             .also { stat ->
-                writeStatistic("voter_agreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
+                writeStatistic("voter_result_agreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    val voterDisagreementRate =
+    val resultDisagreementRateByVoter =
         proposalResolutionsByVoter
             .mapToResolutionVoteToResultRates(
                 targetResultFor = ProposalResult.REJECTED,
                 targetResultAgainst = ProposalResult.ADOPTED,
             )
             .also { stat ->
-                writeStatistic("voter_disagreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
+                writeStatistic("voter_result_disagreement_rate", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    val voterAverageVotingStrength =
+    val averageVotingStrengthByVoter =
         proposalResolutionsByVoter
             .mapValues { (voter, resolutions) ->
                 resolutions.sumOf {
