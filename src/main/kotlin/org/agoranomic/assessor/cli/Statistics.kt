@@ -251,14 +251,10 @@ fun main() {
                 proposalResolutions.filter { resolution -> resolution.votes.voters.contains(voter) }
             }
 
-    val voteCountsByVoter =
-        proposalResolutionsByVoter
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic("voter_votes", stat.entries.sortedByDescending { it.value }.mapToPairs())
-            }
-
+    val voteCountsByVoter = proposalResolutionsByVoter.mapValuesToCounts()
     val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
+
+    writeStatistic("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.mapToPairs())
 
     writeEndorsementsData(
         proposalResolutions = proposalResolutions,
