@@ -22,6 +22,7 @@ import org.agoranomic.assessor.lib.vote.VoteKind
 import org.agoranomic.assessor.stats.writeStatistic
 import org.agoranomic.assessor.stats.writeVoteKindData
 import org.agoranomic.assessor.stats.writeVoterResultData
+import org.agoranomic.assessor.stats.writeVotingStrengthData
 
 private val WHITESPACE_REGEX = Regex("\\s")
 
@@ -284,20 +285,10 @@ fun main() {
 
     val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
 
-    fun <V> Iterable<Map.Entry<Person, V>>.sortedByVoteCount(): List<Map.Entry<Person, V>> {
-        return sortedByDescending { voteCountsByVoter.getValue(it.key) }
-    }
-
-    val averageVotingStrengthByVoter =
-        proposalResolutionsByVoter
-            .mapValues { (voter, resolutions) ->
-                resolutions.sumOf {
-                    it.votingStrengths.trailForPerson(voter).final.raw
-                }.intValueExact().toDouble() / resolutions.count().toDouble()
-            }
-            .also { stat ->
-                writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
-            }
+    writeVotingStrengthData(
+        voters = sortedVoters,
+        proposalResolutionsByVoter = proposalResolutionsByVoter,
+    )
 
     writeVoterResultData(
         voters = sortedVoters,
