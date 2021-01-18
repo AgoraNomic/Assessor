@@ -257,6 +257,7 @@ fun main() {
     writeStatistic("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.mapToPairs())
 
     writeEndorsementsData(
+        voters = sortedVoters,
         proposalResolutions = proposalResolutions,
     )
 
