@@ -19,10 +19,7 @@ import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.ResolutionData
 import org.agoranomic.assessor.lib.resolve.resolve
 import org.agoranomic.assessor.lib.vote.VoteKind
-import org.agoranomic.assessor.stats.writeStatistic
-import org.agoranomic.assessor.stats.writeVoteKindData
-import org.agoranomic.assessor.stats.writeVoterResultData
-import org.agoranomic.assessor.stats.writeVotingStrengthData
+import org.agoranomic.assessor.stats.*
 
 private val WHITESPACE_REGEX = Regex("\\s")
 
@@ -41,14 +38,6 @@ private fun ProposalSet.groupByCoauthor(): Map<Person, ImmutableProposalSet> {
         .associateWith { person ->
             this.filter { it.coauthors.contains(person) }.toImmutableProposalSet()
         }
-}
-
-private fun <K, VE> Map<K, Iterable<VE>>.mapValuesToCounts(): Map<K, Int> {
-    return mapValues { (_, v) -> v.count() }
-}
-
-private fun <K, V> Iterable<Map.Entry<K, V>>.mapToPairs(): List<Pair<K, V>> {
-    return map { it.toPair() }
 }
 
 private fun writeVoterAuthorAgreementGraph(
@@ -256,20 +245,6 @@ fun main() {
                 writeStatistic("author_adopted_words", stat.entries.sortedByAuthoredCount().mapToPairs())
             }
 
-    val endorsementCountsByEndorsee =
-        proposalResolutions
-            .asSequence()
-            .map { it.votes }
-            .flatMap { votes -> votes.voters.flatMap { voter -> votes.voteDescriptionsFor(voter) } }
-            .filterNotNull()
-            .filter { it.kind == "endorsement" }
-            .groupBy { it.parameters.getValue("endorsee") }
-            .mapKeys { (name, _) -> Person(name = name) }
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic("voter_endorsement_counts", stat.entries.sortedBy { it.key.name }.mapToPairs())
-            }
-
     val proposalResolutionsByVoter =
         allVoters
             .associateWith { voter ->
@@ -284,6 +259,10 @@ fun main() {
             }
 
     val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
+
+    writeEndorsementsData(
+        proposalResolutions = proposalResolutions,
+    )
 
     writeVotingStrengthData(
         voters = sortedVoters,
