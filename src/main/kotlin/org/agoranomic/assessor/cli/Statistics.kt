@@ -128,6 +128,169 @@ private fun countVotesOfKindByVoter(
     }
 }
 
+private fun writeVoteKindsByVoterGraph(
+    voters: List<Person>,
+    voteCountsByVoterByVoteKind: Map<VoteKind, Map<Person, Int>>,
+    proposalResolutionsCount: Int,
+) {
+    data class VoterVoteKindCountSpecification(
+        val voter: Person,
+        val voteCount: Int,
+        val kind: VoteKind,
+    )
+
+    val voteKindOrder = listOf(VoteKind.FOR, VoteKind.AGAINST, VoteKind.PRESENT)
+
+    val voterKindSpecificationList =
+        voters
+            .flatMap { voter ->
+                VoteKind.values().map { voteKind ->
+                    VoterVoteKindCountSpecification(
+                        voter = voter,
+                        kind = voteKind,
+                        voteCount = voteCountsByVoterByVoteKind.getValue(voteKind).getValue(voter),
+                    )
+                }
+            }
+            .sortedBy { voteKindOrder.indexOf(it.kind) }
+
+    val voterKindData = mapOf(
+        "voter" to voterKindSpecificationList.map { it.voter.name },
+        "count" to voterKindSpecificationList.map { it.voteCount },
+        "kind" to voterKindSpecificationList.map { it.kind.name },
+    )
+
+    ggsave(
+        lets_plot(voterKindData) +
+                geom_bar(
+                    stat = Stat.identity,
+                    sampling = sampling_none,
+                    position = Pos.stack,
+                ) {
+                    x = "voter"
+                    y = "count"
+                    fill = "kind"
+                } +
+                ggsize(width = voters.size * 45 + 10, height = 500) +
+                scale_fill_discrete(
+                    name = "Vote Kind",
+                    limits = listOf("FOR", "AGAINST", "PRESENT")
+                ) +
+                scale_x_discrete(
+                    name = "Voter",
+                    limits = voters.map { it.name },
+                ) +
+                scale_y_continuous(
+                    name = "Votes",
+                    limits = 0 to proposalResolutionsCount,
+                ) +
+                theme().legendPosition_top() +
+                geom_hline(yintercept = proposalResolutionsCount, linetype = "dashed", color = "red"),
+        filename = "vote_kinds.svg",
+        path = "graphs",
+    )
+}
+
+private fun writeVoterAuthorAgreementGraph(
+    voters: List<Person>,
+    authors: List<Person>,
+    resolutionsByProposal: Map<Proposal, List<ResolutionData>>,
+    votesByVoter: Map<Person, Int>,
+) {
+    data class VoterAuthorSpecification(
+        val voter: Person,
+        val author: Person,
+    )
+
+    val voterAuthorAgreementRates =
+        voters
+            .flatMap { voter ->
+                authors.map { author ->
+                    VoterAuthorSpecification(voter = voter, author = author)
+                }
+            }
+            .map { specification ->
+                specification to
+                        resolutionsByProposal
+                            .asIterable()
+                            .filter { it.key.author == specification.author }
+                            .flatMap { it.value }
+                            .mapNotNull {
+                                if (it.votes.voters.contains(specification.voter))
+                                    when (it.votes.voteFor(specification.voter)) {
+                                        VoteKind.FOR -> +1
+                                        VoteKind.AGAINST -> -1
+                                        VoteKind.PRESENT -> 0
+                                    }
+                                else
+                                    null
+                            }
+                            .average()
+            }
+
+    val authorDataList = voterAuthorAgreementRates.map { it.first.author }
+    val voterDataList = voterAuthorAgreementRates.map { it.first.voter }
+    val rateDataList = voterAuthorAgreementRates.map { it.second }
+
+    ggsave(
+        lets_plot() +
+                geom_tile(
+                    data = mapOf(
+                        "voter" to voterDataList.map { it.name },
+                        "author" to authorDataList.map { it.name },
+                        "rate" to rateDataList,
+                    ),
+                    showLegend = true,
+                ) {
+                    x = "author"
+                    y = "voter"
+                    fill = "rate"
+                } +
+                scale_fill_gradient2(
+                    low = "#B3412C",
+                    mid = "#EDEDED",
+                    high = "#326C81",
+                    limits = -1.0 to +1.0,
+                ) +
+                scale_x_discrete(
+                    limits = authors.map { it.name },
+                ) +
+                scale_y_discrete(
+                    limits = voterDataList.distinct().sortedBy { votesByVoter.getValue(it) }.map { it.name },
+                ) +
+                ggsize(authors.size * 35 + 60, voters.size * 30 + 10),
+        filename = "voter_author_agreement_rates.svg",
+        path = "graphs",
+    )
+}
+
+private fun writeVoterMutualAgreementGraph(
+    voters: List<Person>,
+    proposalResolutions: List<ResolutionData>,
+) {
+    ggsave(
+        CorrPlot(
+            data = voters
+                .associateWith { voter ->
+                    proposalResolutions.map { resolution ->
+                        if (resolution.votes.voters.contains(voter))
+                            when (resolution.votes.voteFor(voter)) {
+                                VoteKind.FOR -> 1
+                                VoteKind.PRESENT -> 0
+                                VoteKind.AGAINST -> -1
+                            }
+                        else
+                            null
+                    }
+                }
+                .mapKeys { (voter, _) -> voter.name },
+            title = "Voter agreement",
+        ).tiles().build(),
+        filename = "voter_agreement.svg",
+        path = "graphs",
+    )
+}
+
 fun main() {
     val resolutionsList = findAssessments().map { resolve(it) }
 
@@ -317,154 +480,24 @@ fun main() {
                 writeStatistic("voter_average_strength", stat.entries.sortedByVoteCount().mapToPairs())
             }
 
-    ggsave(
-        CorrPlot(
-            data = allVoters
-                .sortedByDescending { votesByVoter.getValue(it) }
-                .associateWith { voter ->
-                    proposalResolutions.map { resolution ->
-                        if (resolution.votes.voters.contains(voter))
-                            when (resolution.votes.voteFor(voter)) {
-                                VoteKind.FOR -> 1
-                                VoteKind.PRESENT -> 0
-                                VoteKind.AGAINST -> -1
-                            }
-                        else
-                            null
-                    }
-                }
-                .mapKeys { (voter, _) -> voter.name },
-            title = "Voter agreement",
-        ).tiles().build(),
-        filename = "voter_agreement.svg",
-        path = "graphs",
-    )
-
-    data class VoterAuthorSpecification(
-        val voter: Person,
-        val author: Person,
-    )
-
-    val voterAuthorAgreementRates =
-        allVoters
-            .flatMap { voter ->
-                allAuthors.map { author ->
-                    VoterAuthorSpecification(voter = voter, author = author)
-                }
-            }
-            .map { specification ->
-                specification to
-                        proposalResolutionsByNumber
-                            .asIterable()
-                            .filter { it.key.author == specification.author }
-                            .flatMap { it.value }
-                            .mapNotNull {
-                                if (it.votes.voters.contains(specification.voter))
-                                    when (it.votes.voteFor(specification.voter)) {
-                                        VoteKind.FOR -> +1
-                                        VoteKind.AGAINST -> -1
-                                        VoteKind.PRESENT -> 0
-                                    }
-                                else
-                                    null
-                            }
-                            .average()
-            }
-
-    val authorDataList = voterAuthorAgreementRates.map { it.first.author }
-    val voterDataList = voterAuthorAgreementRates.map { it.first.voter }
-    val rateDataList = voterAuthorAgreementRates.map { it.second }
-
     val sortedVoters = allVoters.sortedByDescending { votesByVoter.getValue(it) }
+    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
 
-    data class VoterVoteKindCountSpecification(
-        val voter: Person,
-        val voteCount: Int,
-        val kind: VoteKind,
+    writeVoterMutualAgreementGraph(
+        voters = sortedVoters,
+        proposalResolutions = proposalResolutions,
     )
 
-    val voteKindOrder = listOf(VoteKind.FOR, VoteKind.AGAINST, VoteKind.PRESENT)
-
-    val voterKindSpecificationList =
-        allVoters
-            .flatMap { voter ->
-                VoteKind.values().map { voteKind ->
-                    VoterVoteKindCountSpecification(
-                        voter = voter,
-                        kind = voteKind,
-                        voteCount = voteCountsByVoterByVoteKind.getValue(voteKind).getValue(voter),
-                    )
-                }
-            }
-            .sortedBy { voteKindOrder.indexOf(it.kind) }
-
-    val voterKindData = mapOf(
-        "voter" to voterKindSpecificationList.map { it.voter.name },
-        "count" to voterKindSpecificationList.map { it.voteCount },
-        "kind" to voterKindSpecificationList.map { it.kind.name },
+    writeVoteKindsByVoterGraph(
+        voters = sortedVoters,
+        voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
+        proposalResolutionsCount = proposalResolutions.size,
     )
 
-    ggsave(
-        lets_plot(voterKindData) +
-                geom_bar(
-                    stat = Stat.identity,
-                    sampling = sampling_none,
-                    position = Pos.stack,
-                ) {
-                    x = "voter"
-                    y = "count"
-                    fill = "kind"
-                } +
-                ggsize(width = allVoters.size * 45 + 10, height = 500) +
-                scale_fill_discrete(
-                    name = "Vote Kind",
-                    limits = listOf("FOR", "AGAINST", "PRESENT")
-                ) +
-                scale_x_discrete(
-                    name = "Voter",
-                    limits = sortedVoters.map { it.name },
-                ) +
-                scale_y_continuous(
-                    name = "Votes",
-                    limits = 0 to proposalResolutions.size,
-                ) +
-                theme().legendPosition_top() +
-                geom_hline(yintercept = proposalResolutions.size, linetype = "dashed", color = "red"),
-        filename = "vote_kinds.svg",
-        path = "graphs",
-    )
-
-    ggsave(
-        lets_plot() +
-                geom_tile(
-                    data = mapOf(
-                        "voter" to voterDataList.map { it.name },
-                        "author" to authorDataList.map { it.name },
-                        "rate" to rateDataList,
-                    ),
-                    showLegend = true,
-                ) {
-                    x = "author"
-                    y = "voter"
-                    fill = "rate"
-                } +
-                scale_fill_gradient2(
-                    low = "#B3412C",
-                    mid = "#EDEDED",
-                    high = "#326C81",
-                    limits = -1.0 to +1.0,
-                ) +
-                scale_x_discrete(
-                    limits = authorDataList
-                        .distinct()
-                        .sortedByDescending { writtenCountsByAuthor.getValue(it) }
-                        .map { it.name },
-                ) +
-                scale_y_discrete(
-                    limits = voterDataList.distinct().sortedBy { votesByVoter.getValue(it) }.map { it.name },
-                ) +
-                ggsize(allAuthors.size * 35 + 60, allVoters.size * 30 + 10),
-        filename = "voter_author_agreement_rates.svg",
-        path = "graphs",
+    writeVoterAuthorAgreementGraph(
+        voters = sortedVoters,
+        authors = sortedAuthors,
+        resolutionsByProposal = proposalResolutionsByNumber,
+        votesByVoter = votesByVoter,
     )
 }
