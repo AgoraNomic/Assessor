@@ -276,7 +276,12 @@ fun main() {
         proposalResolutions = proposalResolutions,
     )
 
-    writeVoteKindData(sortedVoters, voteCountsByVoter, proposalResolutions)
+    writeVoteKindData(
+        voters = sortedVoters,
+        voteKindsForCountsAndRates = VoteKind.values().toSet(),
+        voteCountsByVoter = voteCountsByVoter,
+        proposalResolutions = proposalResolutions
+    )
 
     writeVoterAuthorAgreementGraph(
         voters = sortedVoters,

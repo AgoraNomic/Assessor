@@ -26,22 +26,28 @@ private fun countVotesOfKindByVoter(
 
 private fun writeVoteKindCountsStat(
     voters: List<Person>,
+    voteKinds: Set<VoteKind>,
     voteCountsByVoterByVoteKind: Map<VoteKind, Map<Person, Int>>,
 ) {
-    writeStatistic(
-        "voter_votes_present",
-        voters.map { it to voteCountsByVoterByVoteKind.getValue(VoteKind.PRESENT).getValue(it) }
-    )
+    for (voteKind in voteKinds) {
+        writeStatistic(
+            "voter_votes_${voteKind.name.toLowerCase()}",
+            voters.map { it to voteCountsByVoterByVoteKind.getValue(voteKind).getValue(it) }
+        )
+    }
 }
 
 private fun writeVoteKindRatesStat(
     voters: List<Person>,
+    voteKinds: Set<VoteKind>,
     voteCountRatesByVoterByVoteKind: Map<VoteKind, Map<Person, Double>>,
 ) {
-    writeStatistic(
-        "voter_votes_present_rate",
-        voters.map { it to voteCountRatesByVoterByVoteKind.getValue(VoteKind.PRESENT).getValue(it) },
-    )
+    for (voteKind in voteKinds) {
+        writeStatistic(
+            "voter_votes_${voteKind.name.toLowerCase()}_rate",
+            voters.map { it to voteCountRatesByVoterByVoteKind.getValue(voteKind).getValue(it) },
+        )
+    }
 }
 
 private fun writeVoteKindsByVoterGraph(
@@ -109,6 +115,7 @@ private fun writeVoteKindsByVoterGraph(
 
 fun writeVoteKindData(
     voters: List<Person>,
+    voteKindsForCountsAndRates: Set<VoteKind>,
     voteCountsByVoter: Map<Person, Int>,
     proposalResolutions: List<ResolutionData>,
 ) {
@@ -126,11 +133,13 @@ fun writeVoteKindData(
 
     writeVoteKindCountsStat(
         voters = voters,
+        voteKinds = voteKindsForCountsAndRates,
         voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
     )
 
     writeVoteKindRatesStat(
         voters = voters,
+        voteKinds = voteKindsForCountsAndRates,
         voteCountRatesByVoterByVoteKind = voteCountRatesByVoterByVoteKind,
     )
 
