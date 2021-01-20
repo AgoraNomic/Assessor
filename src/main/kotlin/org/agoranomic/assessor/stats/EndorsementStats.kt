@@ -11,6 +11,8 @@ import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_gradient
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_discrete
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableMap
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ResolutionData
 import org.agoranomic.assessor.lib.vote.machineIfPresent
@@ -20,6 +22,26 @@ private data class EndorsementCountSpecification(
     val endorsee: String,
     val count: Int,
 )
+
+private data class EndorsementTotals(
+    val endorserTimesByPerson: ImmutableMap<String, Int>,
+    val endorseeTimesByPerson: ImmutableMap<String, Int>,
+) {
+    init {
+        require(endorserTimesByPerson.keys == endorseeTimesByPerson.keys)
+    }
+
+    val persons
+        get() = endorseeTimesByPerson.keys
+
+    constructor(
+        endorserTimesByPerson: Map<String, Int>,
+        endorseeTimesByPerson: Map<String, Int>,
+    ) : this(
+        endorserTimesByPerson = endorserTimesByPerson.toImmutableMap(),
+        endorseeTimesByPerson = endorseeTimesByPerson.toImmutableMap(),
+    )
+}
 
 private fun endorsementSpecificationsOf(
     proposalResolutions: List<ResolutionData>,
@@ -51,6 +73,30 @@ private fun endorsementSpecificationsOf(
                 )
             }
         }
+}
+
+private fun endorsementTotalsFor(
+    voters: List<Person>,
+    endorsementSpecifications: List<EndorsementCountSpecification>,
+): EndorsementTotals {
+    fun countEndorsementsGroupingBy(
+        selector: (EndorsementCountSpecification) -> String,
+    ): Map<String, Int> {
+        return endorsementSpecifications
+            .groupBy(selector)
+            .mapValues { (_, v) -> v.sumOf { it.count } }
+            .let { data ->
+                voters.associate { it.name to data.getOrDefault(it.name, 0) }
+            }
+    }
+
+    val endorserTimesByPerson = countEndorsementsGroupingBy { it.endorser }
+    val endorseeTimesByPerson = countEndorsementsGroupingBy { it.endorsee }
+
+    return EndorsementTotals(
+        endorserTimesByPerson = endorserTimesByPerson,
+        endorseeTimesByPerson = endorseeTimesByPerson,
+    )
 }
 
 private fun writeEndorsementsGraph(
@@ -98,59 +144,40 @@ private fun writeEndorsementsGraph(
 }
 
 private fun writeEndorseeVsEndorserGraph(
-    voters: List<Person>,
-    endorsementSpecifications: List<EndorsementCountSpecification>,
+    endorsementTotals: EndorsementTotals,
 ) {
-    data class EndorseeEndorserCountSpecification(
-        val person: String,
-        val endorseeCount: Int,
-        val endorserCount: Int,
-    )
-
     data class SingleEntrySpecification(
         val person: String,
         val count: Int,
         val kind: String,
     )
 
-    val voterNames = voters.map { it.name }
+    val endorseeEntries = endorsementTotals.endorseeTimesByPerson.map {
+        SingleEntrySpecification(
+            person = it.key,
+            count = it.value,
+            kind = "ENDORSEE",
+        )
+    }
 
-    val data =
-        voters
-            .map { person ->
-                val name = person.name
+    val endorserEntries = endorsementTotals.endorserTimesByPerson.map {
+        SingleEntrySpecification(
+            person = it.key,
+            count = it.value,
+            kind = "ENDORSER",
+        )
+    }
 
-                EndorseeEndorserCountSpecification(
-                    name,
-                    endorseeCount = endorsementSpecifications.filter { it.endorsee == name }.sumOf { it.count },
-                    endorserCount = endorsementSpecifications.filter { it.endorser == name }.sumOf { it.count },
-                )
-            }
-            .filter {
-                it.person in voterNames
-            }
-            .flatMap {
-                listOf(
-                    SingleEntrySpecification(
-                        person = it.person,
-                        count = it.endorseeCount,
-                        kind = "ENDORSEE",
-                    ),
-                    SingleEntrySpecification(
-                        person = it.person,
-                        count = it.endorserCount,
-                        kind = "ENDORSER",
-                    ),
-                )
-            }
+    val allEntries = endorseeEntries + endorserEntries
+
 
     writeGraph(
         "endorsee_endorser",
         lets_plot(
             data = mapOf(
-                "person" to data.map { it.person },
-                "count" to data.map { it.count },
-                "kind" to data.map { it.kind },
+                "person" to allEntries.map { it.person },
+                "count" to allEntries.map { it.count },
+                "kind" to allEntries.map { it.kind },
             ),
         ) +
                 geom_bar(stat = Stat.identity, position = Pos.dodge, sampling = sampling_none) {
@@ -158,29 +185,22 @@ private fun writeEndorseeVsEndorserGraph(
                     y = "count"
                     fill = "kind"
                 } +
-                ggsize(voters.size * 60 + 60, 1000),
+                ggsize(endorsementTotals.persons.size * 60 + 60, 1000),
+    )
+}
+
+private fun writeEndorseeTimesStatistic(endorsementTotals: EndorsementTotals) {
+    writeStatistic(
+        "voter_endorsement_counts",
+        endorsementTotals.endorseeTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
     )
 }
 
 fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<ResolutionData>) {
     val endorsementsData = endorsementSpecificationsOf(proposalResolutions)
+    val endorsementTotals = endorsementTotalsFor(voters, endorsementsData)
 
     writeEndorsementsGraph(voters, endorsementsData)
-    writeEndorseeVsEndorserGraph(voters, endorsementsData)
-
-    writeStatistic(
-        "voter_endorsement_counts",
-        proposalResolutions
-            .asSequence()
-            .map { it.votes }
-            .flatMap { votes -> votes.voters.flatMap { voter -> votes.voteDescriptionsFor(voter) } }
-            .mapNotNull { it.machineIfPresent }
-            .filter { it.kind == "endorsement" }
-            .groupBy { it.parameters.getValue("endorsee") }
-            .mapKeys { (name, _) -> Person(name = name) }
-            .mapValuesToCounts()
-            .entries
-            .sortedBy { it.key.name }
-            .mapToPairs()
-    )
+    writeEndorseeVsEndorserGraph(endorsementTotals)
+    writeEndorseeTimesStatistic(endorsementTotals)
 }
