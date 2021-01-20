@@ -1,7 +1,6 @@
 package org.agoranomic.assessor.stats
 
 import jetbrains.letsPlot.*
-import jetbrains.letsPlot.export.ggsave
 import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.geom.geom_hline
 import jetbrains.letsPlot.sampling.sampling_none
@@ -82,7 +81,8 @@ private fun writeVoteKindsByVoterGraph(
         "kind" to voterKindSpecificationList.map { it.kind.name },
     )
 
-    ggsave(
+    writeGraph(
+        "vote_kinds",
         lets_plot(voterKindData) +
                 geom_bar(
                     stat = Stat.identity,
@@ -108,8 +108,6 @@ private fun writeVoteKindsByVoterGraph(
                 ) +
                 theme().legendPosition_top() +
                 geom_hline(yintercept = proposalResolutionsCount, linetype = "dashed", color = "red"),
-        filename = "vote_kinds.svg",
-        path = "graphs",
     )
 }
 

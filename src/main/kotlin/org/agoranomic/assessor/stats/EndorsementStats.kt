@@ -2,7 +2,6 @@ package org.agoranomic.assessor.stats
 
 import jetbrains.letsPlot.Pos
 import jetbrains.letsPlot.Stat
-import jetbrains.letsPlot.export.ggsave
 import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.geom.geom_text
 import jetbrains.letsPlot.geom.geom_tile
@@ -14,7 +13,6 @@ import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_discrete
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ResolutionData
-import org.agoranomic.assessor.lib.vote.VoteStepDescription
 import org.agoranomic.assessor.lib.vote.machineIfPresent
 
 private data class EndorsementCountSpecification(
@@ -65,7 +63,8 @@ private fun writeEndorsementsGraph(
     val endorseeData = endorsementSpecifications.map { it.endorsee }
     val countData = endorsementSpecifications.map { it.count }
 
-    ggsave(
+    writeGraph(
+        "endorsement_counts",
         lets_plot(
             data = mapOf(
                 "endorser" to endorserData,
@@ -95,8 +94,6 @@ private fun writeEndorsementsGraph(
                     limits = voterNames.reversed(),
                 ) +
                 ggsize(voters.size * 40 + 60, voters.size * 40 + 70),
-        filename = "endorsement_counts.svg",
-        path = "graphs",
     )
 }
 
@@ -147,7 +144,8 @@ private fun writeEndorseeVsEndorserGraph(
                 )
             }
 
-    ggsave(
+    writeGraph(
+        "endorsee_endorser",
         lets_plot(
             data = mapOf(
                 "person" to data.map { it.person },
@@ -161,8 +159,6 @@ private fun writeEndorseeVsEndorserGraph(
                     fill = "kind"
                 } +
                 ggsize(voters.size * 60 + 60, 1000),
-        filename = "endorsee_endorser.svg",
-        path = "graphs",
     )
 }
 

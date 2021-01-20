@@ -1,5 +1,7 @@
 package org.agoranomic.assessor.stats
 
+import jetbrains.letsPlot.Figure
+import jetbrains.letsPlot.export.ggsave
 import org.agoranomic.assessor.lib.Person
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -57,3 +59,11 @@ fun writeStatistic(name: String, statistic: List<Pair<Person, Int>>) {
 @JvmName("writeStatisticInt")
 fun writeStatistic(name: String, statistic: Map<Person, Int>) =
     writeStatistic(name, statistic.entries.map { it.toPair() })
+
+fun writeGraph(name: String, plot: Figure) {
+    ggsave(
+        plot = plot,
+        filename = "$name.svg",
+        path = "graphs",
+    )
+}
