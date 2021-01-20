@@ -199,13 +199,18 @@ private fun writeEndorseeVsEndorserGraph(
     )
 }
 
-private fun writeEndorseeTimesStatistic(
+private fun writeEndorsementCountsStatistic(
     tag: String,
     endorsementTotals: EndorsementTotals,
 ) {
     writeStatistic(
-        "voter_endorsement_${tag}_counts",
+        "voter_endorsee_${tag}_times",
         endorsementTotals.endorseeTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
+    )
+
+    writeStatistic(
+        "voter_endorser_${tag}_times",
+        endorsementTotals.endorserTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
     )
 }
 
@@ -218,7 +223,7 @@ private fun doWriteEndorsementsData(
 
     writeEndorsementsGraph(tag, voters, endorsementsData)
     writeEndorseeVsEndorserGraph(tag, endorsementTotals)
-    writeEndorseeTimesStatistic(tag, endorsementTotals)
+    writeEndorsementCountsStatistic(tag, endorsementTotals)
 }
 
 fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<ResolutionData>) {
