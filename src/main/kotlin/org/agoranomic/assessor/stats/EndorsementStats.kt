@@ -14,6 +14,8 @@ import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_discrete
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ResolutionData
+import org.agoranomic.assessor.lib.vote.VoteStepDescription
+import org.agoranomic.assessor.lib.vote.machineIfPresent
 
 private data class EndorsementCountSpecification(
     val endorser: String,
@@ -34,7 +36,7 @@ private fun endorsementSpecificationsOf(
                             resolution
                                 .votes
                                 .voteDescriptionsFor(voter)
-                                .filterNotNull()
+                                .mapNotNull { it.machineIfPresent }
                                 .filter { it.kind == "endorsement" }
                                 .also { check(it.size <= 1) }
                 }
@@ -176,7 +178,7 @@ fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<Resolu
             .asSequence()
             .map { it.votes }
             .flatMap { votes -> votes.voters.flatMap { voter -> votes.voteDescriptionsFor(voter) } }
-            .filterNotNull()
+            .mapNotNull { it.machineIfPresent }
             .filter { it.kind == "endorsement" }
             .groupBy { it.parameters.getValue("endorsee") }
             .mapKeys { (name, _) -> Person(name = name) }
