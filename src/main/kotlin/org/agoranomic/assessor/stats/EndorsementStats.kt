@@ -45,6 +45,7 @@ private data class EndorsementTotals(
 
 private fun endorsementSpecificationsOf(
     proposalResolutions: List<ResolutionData>,
+    excludeTotalVotes: Boolean,
 ): List<EndorsementCountSpecification> {
     return proposalResolutions
         .flatMap { resolution ->
@@ -56,13 +57,20 @@ private fun endorsementSpecificationsOf(
                             resolution
                                 .votes
                                 .voteDescriptionsFor(voter)
-                                .mapNotNull { it.machineIfPresent }
-                                .filter { it.kind == "endorsement" }
-                                .also { check(it.size <= 1) }
+                                .let {
+                                    if (excludeTotalVotes) {
+                                        it.takeIf { it.none { it.machineIfPresent?.kind == "part_of_all_vote" } }
+                                    } else {
+                                        it
+                                    }
+                                }
+                                ?.mapNotNull { it.machineIfPresent }
+                                ?.filter { it.kind == "endorsement" }
+                                ?.also { check(it.size <= 1) }
                 }
         }
         .groupBy { it.first }
-        .mapValues { (_, v) -> v.flatMap { it.second } }
+        .mapValues { (_, v) -> v.mapNotNull { it.second }.flatten() }
         .mapValues { (_, v) -> v.groupBy { it.parameters.getValue("endorsee") }.mapValuesToCounts() }
         .flatMap { (endorser, endorseeMap) ->
             endorseeMap.map { (endorsee, count) ->
@@ -100,6 +108,7 @@ private fun endorsementTotalsFor(
 }
 
 private fun writeEndorsementsGraph(
+    tag: String,
     voters: List<Person>,
     endorsementSpecifications: List<EndorsementCountSpecification>,
 ) {
@@ -110,7 +119,7 @@ private fun writeEndorsementsGraph(
     val countData = endorsementSpecifications.map { it.count }
 
     writeGraph(
-        "endorsement_counts",
+        "endorsement_counts_${tag}",
         lets_plot(
             data = mapOf(
                 "endorser" to endorserData,
@@ -144,6 +153,7 @@ private fun writeEndorsementsGraph(
 }
 
 private fun writeEndorseeVsEndorserGraph(
+    tag: String,
     endorsementTotals: EndorsementTotals,
 ) {
     data class SingleEntrySpecification(
@@ -172,7 +182,7 @@ private fun writeEndorseeVsEndorserGraph(
 
 
     writeGraph(
-        "endorsee_endorser",
+        "endorsee_endorser_${tag}",
         lets_plot(
             data = mapOf(
                 "person" to allEntries.map { it.person },
@@ -189,18 +199,32 @@ private fun writeEndorseeVsEndorserGraph(
     )
 }
 
-private fun writeEndorseeTimesStatistic(endorsementTotals: EndorsementTotals) {
+private fun writeEndorseeTimesStatistic(
+    tag: String,
+    endorsementTotals: EndorsementTotals,
+) {
     writeStatistic(
-        "voter_endorsement_counts",
+        "voter_endorsement_${tag}_counts",
         endorsementTotals.endorseeTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
     )
 }
 
-fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<ResolutionData>) {
-    val endorsementsData = endorsementSpecificationsOf(proposalResolutions)
+private fun doWriteEndorsementsData(
+    tag: String,
+    voters: List<Person>,
+    endorsementsData: List<EndorsementCountSpecification>,
+) {
     val endorsementTotals = endorsementTotalsFor(voters, endorsementsData)
 
-    writeEndorsementsGraph(voters, endorsementsData)
-    writeEndorseeVsEndorserGraph(endorsementTotals)
-    writeEndorseeTimesStatistic(endorsementTotals)
+    writeEndorsementsGraph(tag, voters, endorsementsData)
+    writeEndorseeVsEndorserGraph(tag, endorsementTotals)
+    writeEndorseeTimesStatistic(tag, endorsementTotals)
+}
+
+fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<ResolutionData>) {
+    val allEndorsementsData = endorsementSpecificationsOf(proposalResolutions, excludeTotalVotes = false)
+    val nonTotalEndorsementsData = endorsementSpecificationsOf(proposalResolutions, excludeTotalVotes = true)
+
+    doWriteEndorsementsData("all", voters, allEndorsementsData)
+    doWriteEndorsementsData("non_total", voters, nonTotalEndorsementsData)
 }
