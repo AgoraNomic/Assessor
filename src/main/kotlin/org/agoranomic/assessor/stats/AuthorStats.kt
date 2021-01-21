@@ -3,6 +3,11 @@
 
 package org.agoranomic.assessor.stats
 
+import jetbrains.letsPlot.Stat
+import jetbrains.letsPlot.geom.geom_bar
+import jetbrains.letsPlot.ggsize
+import jetbrains.letsPlot.lets_plot
+import jetbrains.letsPlot.scale.scale_x_discrete
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
@@ -49,6 +54,27 @@ fun writeAuthorData(
             }
             .also {},
     )
+
+    writeGraph(
+        "author_written",
+        lets_plot(data = mapOf(
+            "author" to authors.flatMap { listOf(it.name, it.name) },
+            "count" to authors.flatMap {
+                val adoptedCount = adoptedCountsByAuthor.getOrDefault(it, 0)
+                val totalCount = writtenCountsByAuthor.getValue(it)
+                listOf(adoptedCount, totalCount - adoptedCount)
+            },
+            "kind" to authors.flatMap { listOf("ADOPTED", "NON-ADOPTED") }
+        )) +
+                geom_bar(stat = Stat.identity) {
+                    x = "author"
+                    y = "count"
+                    fill = "kind"
+                } +
+                scale_x_discrete(limits = authors.map { it.name }) +
+                ggsize(authors.size * 60 + 60, 1000),
+    )
+
 }
 
 fun writeCoauthorsData(
