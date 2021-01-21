@@ -12,11 +12,38 @@ import java.nio.file.StandardOpenOption
 
 private val FILE_CHARSET = Charsets.UTF_8
 
+private fun formatTable(name: String, statistic: List<Pair<Person, BigDecimal>>): String {
+    val personNames = statistic.map { it.first.name }
+    val personValues = statistic.map { it.second.toString() }
+
+    val maxPersonLength = (personNames + "PERSON").maxOf { it.length }
+    val maxValueLength = (personValues + name).maxOf { it.length }
+
+    return buildString {
+        appendLine("| " + "PERSON".padStart(maxPersonLength) + " | " + name.padStart(maxValueLength) + " |")
+        appendLine("| :" + "-".repeat(maxPersonLength - 1) + " | " + "-".repeat(maxValueLength - 1) + ": |")
+
+        for ((personName, personValue) in personNames zip personValues) {
+            appendLine(
+                "| " + personName.padStart(maxPersonLength) + " | " + personValue.padStart(maxValueLength) + " |",
+            )
+        }
+    }
+}
+
 @JvmName("writeStatisticBigDecimal")
 fun writeStatistic(name: String, statistic: List<Pair<Person, BigDecimal>>) {
     Files.writeString(
         Path.of("$name.txt"),
         statistic.joinToString("\n") { "${it.first.name}: ${it.second}" },
+        FILE_CHARSET,
+        StandardOpenOption.CREATE,
+        StandardOpenOption.TRUNCATE_EXISTING,
+    )
+
+    Files.writeString(
+        Path.of("tables").also { Files.createDirectories(it) }.resolve("$name.txt"),
+        formatTable(name, statistic),
         FILE_CHARSET,
         StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING,
