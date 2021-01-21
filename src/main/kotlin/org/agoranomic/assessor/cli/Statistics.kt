@@ -2,7 +2,6 @@ package org.agoranomic.assessor.cli
 
 import org.agoranomic.assessor.decisions.findAssessments
 import org.agoranomic.assessor.lib.Person
-import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toImmutableProposalSet
@@ -11,12 +10,6 @@ import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.resolve
 import org.agoranomic.assessor.lib.vote.VoteKind
 import org.agoranomic.assessor.stats.*
-
-private val WHITESPACE_REGEX = Regex("\\s")
-
-private fun Proposal.textWords(): Int {
-    return text.split(WHITESPACE_REGEX).count { it.isNotBlank() }
-}
 
 private fun ProposalSet.groupByAuthor(): Map<Person, ImmutableProposalSet> {
     return groupBy { it.author }.mapValues { (_, v) -> v.toImmutableProposalSet() }
@@ -69,8 +62,6 @@ fun main() {
                 )
             }
 
-    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
-
     val writtenCountsByCoauthor =
         proposalsByCoauthor
             .mapValuesToCounts()
@@ -81,60 +72,20 @@ fun main() {
                 )
             }
 
-    fun <V> Iterable<Map.Entry<Person, V>>.sortedByAuthoredCount(): List<Map.Entry<Person, V>> {
-        return sortedByDescending { writtenCountsByAuthor.getValue(it.key) }
-    }
+    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
+    val sortedCoauthors = allCoauthors.sortedByDescending { writtenCountsByCoauthor.getValue(it) }
 
-    fun <V> Iterable<Map.Entry<Person, V>>.sortedByCoauthoredCount(): List<Map.Entry<Person, V>> {
-        return sortedByDescending { writtenCountsByCoauthor.getValue(it.key) }
-    }
+    writeAuthorData(
+        authors = sortedAuthors,
+        adoptedProposalsByAuthor = adoptedProposalsByAuthor,
+        writtenCountsByAuthor = writtenCountsByAuthor,
+    )
 
-    val adoptedCountsByAuthor =
-        adoptedProposalsByAuthor
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic(
-                    "author_adopted",
-                    stat.entries.sortedByAuthoredCount().mapToPairs(),
-                )
-            }
-
-    val adoptedCountsByCoauthor =
-        adoptedProposalsByCoauthor
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic(
-                    "coauthor_adopted",
-                    stat.entries.sortedByCoauthoredCount().mapToPairs(),
-                )
-            }
-
-    val adoptedRateByAuthor =
-        allAuthors
-            .associateWith {
-                (adoptedCountsByAuthor[it] ?: 0).toDouble() / (writtenCountsByAuthor.getValue(it)).toDouble()
-            }
-            .also { stat ->
-                writeStatistic("author_adopted_rate", stat.entries.sortedByAuthoredCount().mapToPairs())
-            }
-
-    val adoptedRateByCoauthor =
-        allCoauthors
-            .associateWith {
-                (adoptedCountsByCoauthor[it] ?: 0).toDouble() / (writtenCountsByCoauthor.getValue(it)).toDouble()
-            }
-            .also { stat ->
-                writeStatistic("coauthor_adopted_rate", stat.entries.sortedByCoauthoredCount().mapToPairs())
-            }
-
-    val adoptedWordsByAuthor =
-        adoptedProposalsByAuthor
-            .mapValues { (_, v) ->
-                v.sumOf { it.textWords().toBigInteger() }
-            }
-            .also { stat ->
-                writeStatistic("author_adopted_words", stat.entries.sortedByAuthoredCount().mapToPairs())
-            }
+    writeCoauthorsData(
+        coauthors = sortedCoauthors,
+        adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
+        writtenCountsByCoauthor = writtenCountsByCoauthor,
+    )
 
     val proposalResolutionsByVoter =
         allVoters
