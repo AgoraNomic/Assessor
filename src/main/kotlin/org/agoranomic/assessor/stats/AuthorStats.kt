@@ -46,13 +46,13 @@ fun writeAuthorData(
             .also {},
     )
 
+    val adoptedWordsByAuthor = authors.associateWith { author ->
+        adoptedProposalsByAuthor[author]?.sumOf { it.textWords().toBigInteger() } ?: BigInteger.ZERO
+    }
+
     writeStatistic(
         "author_adopted_words",
-        authors
-            .associateWith { author ->
-                adoptedProposalsByAuthor[author]?.sumOf { it.textWords().toBigInteger() } ?: BigInteger.ZERO
-            }
-            .also {},
+        adoptedWordsByAuthor,
     )
 
     writeGraph(
@@ -75,6 +75,19 @@ fun writeAuthorData(
                 ggsize(authors.size * 60 + 60, 1000),
     )
 
+    writeGraph(
+        "author_adopted_words",
+        lets_plot(data = mapOf(
+            "author" to adoptedWordsByAuthor.map { it.key.name },
+            "count" to adoptedWordsByAuthor.map { it.value.intValueExact() },
+        )) +
+                geom_bar(stat = Stat.identity) {
+                    x = "author"
+                    y = "count"
+                } +
+                scale_x_discrete(limits = authors.map { it.name }) +
+                ggsize(authors.size * 60 + 60, 1000),
+    )
 }
 
 fun writeCoauthorsData(
