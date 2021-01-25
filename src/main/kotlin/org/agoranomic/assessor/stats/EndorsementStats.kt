@@ -6,10 +6,12 @@ import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.geom.geom_text
 import jetbrains.letsPlot.geom.geom_tile
 import jetbrains.letsPlot.ggsize
+import jetbrains.letsPlot.label.ggtitle
 import jetbrains.letsPlot.lets_plot
 import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_gradient
 import jetbrains.letsPlot.scale.scale_x_discrete
+import jetbrains.letsPlot.scale.scale_y_continuous
 import jetbrains.letsPlot.scale.scale_y_discrete
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap
@@ -142,10 +144,13 @@ private fun writeEndorsementsGraph(
                     low = "#EDEDED",
                     high = "#326C81",
                 ) +
+                ggtitle("Endorsement counts") +
                 scale_x_discrete(
+                    name = "Endorsee",
                     limits = voterNames,
                 ) +
                 scale_y_discrete(
+                    name = "Endorser",
                     limits = voterNames.reversed(),
                 ) +
                 ggsize(voters.size * 40 + 60, voters.size * 40 + 70),
@@ -195,6 +200,9 @@ private fun writeEndorseeVsEndorserGraph(
                     y = "count"
                     fill = "kind"
                 } +
+                ggtitle("Endorsements") +
+                scale_x_discrete("Person") +
+                scale_y_continuous("Count") +
                 ggsize(endorsementTotals.persons.size * 60 + 60, 1000),
     )
 }

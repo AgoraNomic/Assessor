@@ -3,6 +3,7 @@ package org.agoranomic.assessor.stats
 import jetbrains.letsPlot.*
 import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.geom.geom_hline
+import jetbrains.letsPlot.label.ggtitle
 import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_discrete
 import jetbrains.letsPlot.scale.scale_x_discrete
@@ -98,6 +99,7 @@ private fun writeVoteKindsByVoterGraph(
                     name = "Vote Kind",
                     limits = listOf("FOR", "AGAINST", "PRESENT")
                 ) +
+                ggtitle("Votes by voter") +
                 scale_x_discrete(
                     name = "Voter",
                     limits = voters.map { it.name },

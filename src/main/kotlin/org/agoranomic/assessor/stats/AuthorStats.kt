@@ -6,8 +6,10 @@ package org.agoranomic.assessor.stats
 import jetbrains.letsPlot.Stat
 import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.ggsize
+import jetbrains.letsPlot.label.ggtitle
 import jetbrains.letsPlot.lets_plot
 import jetbrains.letsPlot.scale.scale_x_discrete
+import jetbrains.letsPlot.scale.scale_y_continuous
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
@@ -71,7 +73,9 @@ fun writeAuthorData(
                     y = "count"
                     fill = "kind"
                 } +
-                scale_x_discrete(limits = authors.map { it.name }) +
+                ggtitle("Adopted proposals by author") +
+                scale_x_discrete(name = "Author", limits = authors.map { it.name }) +
+                scale_y_continuous(name = "Proposals") +
                 ggsize(authors.size * 60 + 60, 1000),
     )
 
@@ -85,7 +89,9 @@ fun writeAuthorData(
                     x = "author"
                     y = "count"
                 } +
-                scale_x_discrete(limits = authors.map { it.name }) +
+                ggtitle("Adopted proposal words by author") +
+                scale_x_discrete(name = "Author", limits = authors.map { it.name }) +
+                scale_y_continuous(name = "Adopted proposal words") +
                 ggsize(authors.size * 60 + 60, 1000),
     )
 }

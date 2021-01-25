@@ -69,15 +69,18 @@ fun writeVoterAuthorAgreementGraph(
                     fill = "rate"
                 } +
                 scale_fill_gradient2(
+                    name = "Agreement",
                     low = "#B3412C",
                     mid = "#EDEDED",
                     high = "#326C81",
                     limits = -1.0 to +1.0,
                 ) +
                 scale_x_discrete(
+                    name = "Author",
                     limits = authors.map { it.name },
                 ) +
                 scale_y_discrete(
+                    name = "Voter",
                     limits = voterDataList.distinct().sortedBy { votesByVoter.getValue(it) }.map { it.name },
                 ) +
                 ggsize(authors.size * 35 + 60, voters.size * 30 + 10),
