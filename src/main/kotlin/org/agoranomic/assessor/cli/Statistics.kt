@@ -131,4 +131,9 @@ fun main() {
         resolutionsByProposal = resolutionsByProposal,
         votesByVoter = voteCountsByVoter,
     )
+
+    writeVoterDeterminationStats(
+        voters = sortedVoters,
+        proposalResolutionsByVoter = proposalResolutionsByVoter,
+    )
 }
