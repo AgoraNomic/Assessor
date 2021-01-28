@@ -8,6 +8,7 @@ import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.ggsize
 import jetbrains.letsPlot.label.ggtitle
 import jetbrains.letsPlot.lets_plot
+import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
 import org.agoranomic.assessor.lib.Person
@@ -68,7 +69,7 @@ fun writeAuthorData(
             },
             "kind" to authors.flatMap { listOf("ADOPTED", "NON-ADOPTED") }
         )) +
-                geom_bar(stat = Stat.identity) {
+                geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "author"
                     y = "count"
                     fill = "kind"
@@ -85,7 +86,7 @@ fun writeAuthorData(
             "author" to adoptedWordsByAuthor.map { it.key.name },
             "count" to adoptedWordsByAuthor.map { it.value.intValueExact() },
         )) +
-                geom_bar(stat = Stat.identity) {
+                geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "author"
                     y = "count"
                 } +

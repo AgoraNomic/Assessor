@@ -5,6 +5,7 @@ import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.ggsize
 import jetbrains.letsPlot.label.ggtitle
 import jetbrains.letsPlot.lets_plot
+import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_discrete
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
@@ -76,7 +77,7 @@ fun writeVoterResultData(
                 listOf("AGREEMENT", "DISAGREEMENT")
             },
         )) +
-                geom_bar(stat = Stat.identity) {
+                geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "voter"
                     y = "count"
                     fill = "kind"
