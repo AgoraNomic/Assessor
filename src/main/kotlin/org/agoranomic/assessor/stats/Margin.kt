@@ -14,11 +14,13 @@ import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.ResolutionData
 import java.math.BigDecimal
 
+private fun marginOf(it: ResolutionData): BigDecimal {
+    return it.aiStrengths.strengthFor.raw.toBigDecimal() -
+            it.aiStrengths.strengthAgainst.raw.toBigDecimal() * it.proposal.ai.raw
+}
+
 private fun calculateMarginStats(data: List<ResolutionData>): List<BigDecimal> {
-    return data.map {
-        it.aiStrengths.strengthFor.raw.toBigDecimal() -
-                it.aiStrengths.strengthAgainst.raw.toBigDecimal() * it.proposal.ai.raw
-    }
+    return data.map { marginOf(it) }
 }
 
 private fun Map<Person, List<ResolutionData>>.calculateMargins(): Map<Person, List<BigDecimal>> {
