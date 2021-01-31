@@ -136,4 +136,6 @@ fun main() {
         voters = sortedVoters,
         proposalResolutionsByVoter = proposalResolutionsByVoter,
     )
+
+    writeMarginStats(sortedAuthors, proposalResolutions)
 }
