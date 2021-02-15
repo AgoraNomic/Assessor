@@ -138,4 +138,6 @@ fun main() {
     )
 
     writeMarginStats(sortedAuthors, proposalResolutions)
+
+    writeLengthStats(resolutionsByProposal = resolutionsByProposal)
 }

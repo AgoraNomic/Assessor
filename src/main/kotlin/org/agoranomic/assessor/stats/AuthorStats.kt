@@ -12,16 +12,9 @@ import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
 import org.agoranomic.assessor.lib.Person
-import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import java.math.BigInteger
-
-private val WHITESPACE_REGEX = Regex("\\s")
-
-private fun Proposal.textWords(): Int {
-    return text.split(WHITESPACE_REGEX).count { it.isNotBlank() }
-}
 
 fun writeAuthorData(
     authors: List<Person>,
