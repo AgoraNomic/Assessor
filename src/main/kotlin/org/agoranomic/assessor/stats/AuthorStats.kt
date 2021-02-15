@@ -73,11 +73,17 @@ fun writeAuthorData(
                 ggsize(authors.size * 60 + 60, 1000),
     )
 
+    data class AdoptedWordsEntry(val authorName: String, val totalWords: Int)
+
+    val adoptedWordsEntries = adoptedWordsByAuthor.map {
+        AdoptedWordsEntry(authorName = it.key.name, totalWords = it.value.intValueExact())
+    }
+
     writeGraph(
         "author_adopted_words",
         lets_plot(data = mapOf(
-            "author" to adoptedWordsByAuthor.map { it.key.name },
-            "count" to adoptedWordsByAuthor.map { it.value.intValueExact() },
+            "author" to adoptedWordsEntries.map { it.authorName },
+            "count" to adoptedWordsEntries.map { it.totalWords },
         )) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "author"

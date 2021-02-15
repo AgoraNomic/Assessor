@@ -83,7 +83,8 @@ fun writeVoterDeterminationStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
 ) {
-    val counts = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
+    // In order to ensure a hostile Map implementation doesn't screw with iteration order
+    val counts = countVoterDecisiveTimes(voters, proposalResolutionsByVoter).entries.toList()
 
     writeGraph(
         "voter_determination_counts",

@@ -98,15 +98,20 @@ private fun writeMarginGraphs(
     barGraphTitle: String,
     boxPlotTitle: String,
 ) {
+    data class MarginAverageEntry(val authorName: String, val averageMargin: Double)
+
+    val marginAverageEntries = marginsByAuthor.map { entry ->
+        MarginAverageEntry(
+            authorName = entry.key.name,
+            averageMargin = entry.value.map { it.toDouble() }.onEach { check(it.isFinite()) }.average(),
+        )
+    }
+
     writeGraph(
         name,
         lets_plot(mapOf(
-            "author" to marginsByAuthor.map { entry ->
-                entry.key.name
-            },
-            "margin" to marginsByAuthor.map { entry ->
-                entry.value.map { it.toDouble() }.onEach { check(it.isFinite()) }.average()
-            },
+            "author" to marginAverageEntries.map { it.authorName },
+            "margin" to marginAverageEntries.map { it.averageMargin },
         )) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "author"
