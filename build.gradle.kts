@@ -23,9 +23,9 @@ dependencies {
     implementation("io.github.random-internet-cat:kotlin-utils:1.1.0")
 
     // Dependencies for statistics
-    implementation("org.jetbrains.lets-plot:lets-plot-batik:1.5.6")
-    implementation("org.jetbrains.lets-plot:lets-plot-image-export:1.5.6")
-    api("org.jetbrains.lets-plot:lets-plot-common:1.5.6")
+    implementation("org.jetbrains.lets-plot:lets-plot-batik:2.0.0")
+    implementation("org.jetbrains.lets-plot:lets-plot-image-export:2.0.0")
+    api("org.jetbrains.lets-plot:lets-plot-common:2.0.0")
     api("org.jetbrains.lets-plot-kotlin:lets-plot-kotlin-api:1.2.0")
 
     testImplementation(kotlin("test"))
