@@ -68,20 +68,20 @@ private fun writeSingleMarginStat(
     marginsByAuthor: Map<Person, List<BigDecimal>>,
     kind: String,
 ) {
-    val graphedAdoptedMargins =
+    val orderedMarginsByAuthor =
         authors
             .filter { it in marginsByAuthor.keys }
             .associateWith { marginsByAuthor.getValue(it) }
 
     writeMarginGraphs(
         authors,
-        graphedAdoptedMargins,
+        orderedMarginsByAuthor,
         name = "author_avg_${kind}_strength_margin",
         barGraphTitle = "Average ${kind.toUpperCase()} voting strength margin by author",
         boxPlotTitle = "${kind.toUpperCase()} strength margins by author",
     )
 
-    val averageMarginByAuthor = marginsByAuthor.mapValues { (_, v) ->
+    val averageMarginByAuthor = orderedMarginsByAuthor.mapValues { (_, v) ->
         v.map { it.toDouble() }.onEach { check(it.isFinite()) }.average()
     }
 
