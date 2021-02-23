@@ -54,7 +54,7 @@ fun writeVoterAuthorAgreementGraph(
     val rateDataList = voterAuthorAgreementRates.map { it.second }
 
     writeGraph(
-        "voter_author_agreement_rates.svg",
+        "voter_author_agreement_rates",
         lets_plot() +
                 geom_tile(
                     data = mapOf(
@@ -92,7 +92,7 @@ fun writeVoterMutualAgreementGraph(
     proposalResolutions: List<ResolutionData>,
 ) {
     writeGraph(
-        "voter_agreement.svg",
+        "voter_agreement",
         CorrPlot(
             data = voters
                 .associateWith { voter ->
