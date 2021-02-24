@@ -2,11 +2,13 @@ package org.agoranomic.assessor.stats
 
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ResolutionData
+import java.math.BigInteger
 
-private data class AverageMinMax(
+private data class VoterStrengthStats(
     val average: Double,
     val min: Int,
     val max: Int,
+    val total: BigInteger,
 )
 
 fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Map<Person, List<ResolutionData>>) {
@@ -15,10 +17,11 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
 
         val strengths = resolutions.map { it.votingStrengths.trailForPerson(voter).final.raw.intValueExact() }
 
-        AverageMinMax(
+        VoterStrengthStats(
             average = strengths.average(),
             min = strengths.minOrNull() ?: error(""),
             max = strengths.maxOrNull() ?: error(""),
+            total = strengths.sumOf { it.toBigInteger() },
         )
     }
 
@@ -49,6 +52,15 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
         writeStatistic(
             "voter_strength_max",
             maxs,
+        )
+    }
+
+    run {
+        val totals = data.mapValues { (_, v) -> v.total }
+
+        writeStatistic(
+            "voter_strength_cumulative",
+            totals,
         )
     }
 }
