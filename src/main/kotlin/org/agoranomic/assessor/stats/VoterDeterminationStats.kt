@@ -83,15 +83,27 @@ fun writeVoterDeterminationStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
 ) {
+    val countsMap = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
+
+    run {
+        // Must use variable because overload resolution fails if we don't
+        val orderedCountsMap = voters.associateWith { countsMap.getValue(it).decisiveCount }
+
+        writeStatistic(
+            "voter_determination_times",
+            orderedCountsMap,
+        )
+    }
+
     // In order to ensure a hostile Map implementation doesn't screw with iteration order
-    val counts = countVoterDecisiveTimes(voters, proposalResolutionsByVoter).entries.toList()
+    val countEntries = countsMap.entries.toList()
 
     writeGraph(
         "voter_determination_counts",
         lets_plot(data = mapOf(
-            "voter" to counts.flatMap { listOf(it.key.name, it.key.name) },
-            "kind" to counts.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
-            "count" to counts.flatMap { listOf(it.value.decisiveCount, it.value.indecisiveCount) }
+            "voter" to countEntries.flatMap { listOf(it.key.name, it.key.name) },
+            "kind" to countEntries.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
+            "count" to countEntries.flatMap { listOf(it.value.decisiveCount, it.value.indecisiveCount) }
         )) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "voter"
