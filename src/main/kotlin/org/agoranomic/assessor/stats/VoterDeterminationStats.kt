@@ -9,7 +9,6 @@ import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_discrete
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
-import kotlinx.collections.immutable.toPersistentMap
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.ResolutionData
@@ -22,6 +21,37 @@ private data class VoterDeterminationCounts(
     val decisiveCount: Int,
     val indecisiveCount: Int,
 )
+
+@OptIn(ExperimentalStdlibApi::class)
+private fun voterIsDeterminativeOn(voter: Person, resolution: ResolutionData): Boolean {
+    if (resolution.result == ProposalResult.FAILED_QUORUM) return false
+    if (resolution.votes.voteFor(voter) == VoteKind.PRESENT) return false
+
+    val origResult = resolution.result
+
+    val newResult = resolve(
+        proposal = resolution.proposal,
+        quorum = resolution.quorum,
+        votingStrengthMap = resolution.votingStrengths,
+        votes = SimplifiedSingleProposalVoteMap(
+            resolution.votes.toMap().toMutableMap().apply {
+                put(
+                    voter,
+                    ResolvingVoteResolvedVote(
+                        stepDescriptions = emptyList(),
+                        resolution = when (resolution.votes.voteFor(voter)) {
+                            VoteKind.FOR -> VoteKind.AGAINST
+                            VoteKind.AGAINST -> VoteKind.FOR
+                            else -> error("Unexpected vote kind")
+                        },
+                    )
+                )
+            }
+        )
+    ).result
+
+    return newResult != origResult
+}
 
 /**
  * Returns a map from the persons in [voters] to decisiveness counts.
@@ -40,37 +70,7 @@ private fun countVoterDecisiveTimes(
     return voters.associateWith { voter ->
         val resolutions = proposalResolutionsByVoter.getValue(voter)
 
-        val decisiveCount =
-            resolutions
-                .filter { it.result != ProposalResult.FAILED_QUORUM }
-                .filter { it.votes.voteFor(voter) != VoteKind.PRESENT }
-                .count {
-                    val origResult = it.result
-
-                    val newResult = resolve(
-                        proposal = it.proposal,
-                        quorum = it.quorum,
-                        votingStrengthMap = it.votingStrengths,
-                        votes = SimplifiedSingleProposalVoteMap(
-                            it.votes
-                                .toMap()
-                                .toPersistentMap()
-                                .put(
-                                    voter,
-                                    ResolvingVoteResolvedVote(
-                                        stepDescriptions = emptyList(),
-                                        resolution = when (it.votes.voteFor(voter)) {
-                                            VoteKind.FOR -> VoteKind.AGAINST
-                                            VoteKind.AGAINST -> VoteKind.FOR
-                                            else -> error("Unexpected vote kind")
-                                        },
-                                    )
-                                ),
-                        )
-                    ).result
-
-                    newResult != origResult
-                }
+        val decisiveCount = resolutions.count { voterIsDeterminativeOn(voter, it) }
 
         VoterDeterminationCounts(
             decisiveCount = decisiveCount,
