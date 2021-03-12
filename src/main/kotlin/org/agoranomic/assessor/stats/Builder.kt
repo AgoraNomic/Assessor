@@ -52,19 +52,32 @@ interface StatisticsBuilderScope {
 
 fun StatisticsBuilderScope.yieldGraph(name: String, plot: Figure) = yield(Statistic.Graph(name, plot))
 
+@JvmName("yieldDataString")
+fun StatisticsBuilderScope.yieldData(name: String, statistic: Iterable<Pair<Person, String>>) =
+    yield(
+        Statistic.KeyValuePairs(
+            statistic.map { it.first.name to it.second },
+            name = name,
+            keyName = "PERSON",
+            valueName = name
+        )
+    )
+
+private fun <K, V> Map<K, V>.pairsSequence() = asSequence().map { it.toPair() }
+
+@JvmName("yieldDataString")
+fun StatisticsBuilderScope.yieldData(name: String, statistic: Map<Person, String>) =
+    yieldData(name, statistic.pairsSequence().asIterable())
+
+@JvmName("yieldDataBigDecimal")
 fun StatisticsBuilderScope.yieldData(name: String, statistic: Iterable<Pair<Person, BigDecimal>>) =
-    yield(Statistic.KeyValuePairs(
-        statistic.map { it.first.name to it.second.toString() },
-        name = name,
-        keyName = "PERSON",
-        valueName = name
-    ))
+    yieldData(name, statistic.asSequence().map { it.first to it.second.toString() }.asIterable())
 
 @JvmName("yieldDataBigDecimal")
 fun StatisticsBuilderScope.yieldData(name: String, statistic: Map<Person, BigDecimal>) =
-    yieldData(name, statistic.asSequence().map { it.toPair() }.asIterable())
+    yieldData(name, statistic.pairsSequence().asIterable())
 
-private inline fun <T> StatisticsBuilderScope.doYieldData(
+private inline fun <T> StatisticsBuilderScope.doYieldDataNumeric(
     name: String,
     statistic: Map<Person, T>,
     crossinline mapToBigDecimal: (T) -> BigDecimal,
@@ -74,15 +87,15 @@ private inline fun <T> StatisticsBuilderScope.doYieldData(
 
 @JvmName("yieldDataBigInteger")
 fun StatisticsBuilderScope.yieldData(name: String, statistic: Map<Person, BigInteger>) =
-    doYieldData(name, statistic) { it.toBigDecimal() }
+    doYieldDataNumeric(name, statistic) { it.toBigDecimal() }
 
 @JvmName("yieldDataInt")
 fun StatisticsBuilderScope.yieldData(name: String, statistic: Map<Person, Int>) =
-    doYieldData(name, statistic) { it.toBigDecimal() }
+    doYieldDataNumeric(name, statistic) { it.toBigDecimal() }
 
 @JvmName("yieldDataDouble")
 fun StatisticsBuilderScope.yieldData(name: String, statistic: Map<Person, Double>, scale: Int = 2) =
-    doYieldData(name, statistic) { it.toBigDecimal().setScale(scale, RoundingMode.HALF_UP) }
+    doYieldDataNumeric(name, statistic) { it.toBigDecimal().setScale(scale, RoundingMode.HALF_UP) }
 
 fun buildStatistics(block: StatisticsBuilderScope.() -> Unit): List<Statistic> {
     val out = mutableListOf<Statistic>()
