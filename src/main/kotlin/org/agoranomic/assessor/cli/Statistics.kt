@@ -6,6 +6,7 @@ import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toProposalSet
+import org.agoranomic.assessor.lib.resolve.ProposalResolutionMap
 import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.resolve
 import org.agoranomic.assessor.lib.vote.VoteKind
@@ -26,9 +27,7 @@ private fun ProposalSet.groupByCoauthor(): Map<Person, ImmutableProposalSet> {
 
 private fun <K, V> Iterable<Map.Entry<K, V>>.toMap() = associate { it.toPair() }
 
-fun main() {
-    val assessmentResolutions = findAssessments().map { resolve(it) }
-
+private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): List<Statistic> {
     val proposals = assessmentResolutions.flatMap { it.proposals }.toProposalSet()
 
     val resolutionsByProposal = proposals.associateWith { proposal ->
@@ -144,6 +143,13 @@ fun main() {
     addStatistics(buildMarginStats(sortedAuthors, proposalResolutions))
 
     addStatistics(buildLengthStats(resolutionsByProposal = resolutionsByProposal))
+    return allStatistics
+}
+
+fun main() {
+    val assessmentResolutions = findAssessments().map { resolve(it) }
+
+    val allStatistics = buildAllStats(assessmentResolutions)
 
     for (statistic in allStatistics) {
         val ensureExhaustive = when (statistic) {
