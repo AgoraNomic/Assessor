@@ -9,6 +9,8 @@ import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_fill_discrete
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.ResolutionData
@@ -53,6 +55,18 @@ private fun voterIsDeterminativeOn(voter: Person, resolution: ResolutionData): B
     return newResult != origResult
 }
 
+private data class VoterDeterminationData(
+    val determinativeResolutions: ImmutableList<ResolutionData>,
+    val nondeterminativeResolutions: ImmutableList<ResolutionData>,
+) {
+    val counts by lazy {
+        VoterDeterminationCounts(
+            decisiveCount = determinativeResolutions.count(),
+            indecisiveCount = nondeterminativeResolutions.count(),
+        )
+    }
+}
+
 /**
  * Returns a map from the persons in [voters] to decisiveness counts.
  *
@@ -66,15 +80,17 @@ private fun voterIsDeterminativeOn(voter: Person, resolution: ResolutionData): B
 private fun countVoterDecisiveTimes(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
-): Map<Person, VoterDeterminationCounts> {
+): Map<Person, VoterDeterminationData> {
     return voters.associateWith { voter ->
         val resolutions = proposalResolutionsByVoter.getValue(voter)
 
-        val decisiveCount = resolutions.count { voterIsDeterminativeOn(voter, it) }
+        val (determinative, nondeterminative) = resolutions.partition {
+            voterIsDeterminativeOn(voter, it)
+        }
 
-        VoterDeterminationCounts(
-            decisiveCount = decisiveCount,
-            indecisiveCount = resolutions.count() - decisiveCount,
+        VoterDeterminationData(
+            determinativeResolutions = determinative.toImmutableList(),
+            nondeterminativeResolutions = nondeterminative.toImmutableList(),
         )
     }
 }
@@ -83,11 +99,33 @@ fun buildVoterDeterminationStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
 ) = buildStatistics {
+    val decisiveDecisionsByVoter = voters.associateWith { voter ->
+        proposalResolutionsByVoter
+            .getValue(voter)
+            .filter { voterIsDeterminativeOn(voter, it) }
+            .map { it.proposal.number }.sorted()
+    }
+
+    yield(
+        Statistic.KeyValuePairs(
+            name = "proposal_determinative_voter_count",
+            data = decisiveDecisionsByVoter
+                .values
+                .flatten()
+                .valueCounts()
+                .entries
+                .sortedByDescending { it.value }
+                .map { it.key.toString() to it.value.toString() },
+            keyName = "Proposal",
+            valueName = "Determinative voter count",
+        )
+    )
+
     val countsMap = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
 
     run {
         // Must use variable because overload resolution fails if we don't
-        val orderedCountsMap = voters.associateWith { countsMap.getValue(it).decisiveCount }
+        val orderedCountsMap = voters.associateWith { countsMap.getValue(it).counts.decisiveCount }
 
         yieldData(
             "voter_determination_times",
@@ -103,7 +141,7 @@ fun buildVoterDeterminationStats(
         lets_plot(data = mapOf(
             "voter" to countEntries.flatMap { listOf(it.key.name, it.key.name) },
             "kind" to countEntries.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
-            "count" to countEntries.flatMap { listOf(it.value.decisiveCount, it.value.indecisiveCount) }
+            "count" to countEntries.flatMap { listOf(it.value.counts.decisiveCount, it.value.counts.indecisiveCount) }
         )) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "voter"
