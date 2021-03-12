@@ -24,6 +24,8 @@ private fun ProposalSet.groupByCoauthor(): Map<Person, ImmutableProposalSet> {
         }
 }
 
+private fun <K, V> Iterable<Map.Entry<K, V>>.toMap() = associate { it.toPair() }
+
 fun main() {
     val assessmentResolutions = findAssessments().map { resolve(it) }
 
@@ -52,40 +54,12 @@ fun main() {
     val adoptedProposalsByAuthor = adoptedProposals.groupByAuthor()
     val adoptedProposalsByCoauthor = adoptedProposals.groupByCoauthor()
 
-    val writtenCountsByAuthor =
-        proposalsByAuthor
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic(
-                    "author_written",
-                    stat.entries.sortedByDescending { it.value }.mapToPairs(),
-                )
-            }
+    val writtenCountsByAuthor = proposalsByAuthor.mapValuesToCounts()
 
-    val writtenCountsByCoauthor =
-        proposalsByCoauthor
-            .mapValuesToCounts()
-            .also { stat ->
-                writeStatistic(
-                    "coauthor_written",
-                    stat.entries.sortedByDescending { it.value }.mapToPairs(),
-                )
-            }
+    val writtenCountsByCoauthor = proposalsByCoauthor.mapValuesToCounts()
 
     val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
     val sortedCoauthors = allCoauthors.sortedByDescending { writtenCountsByCoauthor.getValue(it) }
-
-    writeAuthorData(
-        authors = sortedAuthors,
-        adoptedProposalsByAuthor = adoptedProposalsByAuthor,
-        writtenCountsByAuthor = writtenCountsByAuthor,
-    )
-
-    writeCoauthorsData(
-        coauthors = sortedCoauthors,
-        adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
-        writtenCountsByCoauthor = writtenCountsByCoauthor,
-    )
 
     val proposalResolutionsByVoter =
         allVoters
@@ -96,48 +70,95 @@ fun main() {
     val voteCountsByVoter = proposalResolutionsByVoter.mapValuesToCounts()
     val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
 
-    writeStatistic("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.mapToPairs())
+    val allStatistics = mutableListOf<Statistic>()
 
-    writeEndorsementsData(
+    fun addStatistics(statistics: List<Statistic>) {
+        allStatistics += statistics
+    }
+
+    addStatistics(buildStatistics {
+        yieldData(
+            "author_written",
+            writtenCountsByAuthor.entries.sortedByDescending { it.value }.toMap(),
+        )
+
+        yieldData(
+            "coauthor_written",
+            writtenCountsByCoauthor.entries.sortedByDescending { it.value }.toMap(),
+        )
+
+        yieldData("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.toMap())
+    })
+
+    addStatistics(buildAuthorStats(
+        authors = sortedAuthors,
+        adoptedProposalsByAuthor = adoptedProposalsByAuthor,
+        writtenCountsByAuthor = writtenCountsByAuthor,
+    ))
+
+    addStatistics(buildCoauthorsStats(
+        coauthors = sortedCoauthors,
+        adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
+        writtenCountsByCoauthor = writtenCountsByCoauthor,
+    ))
+
+    addStatistics(buildEndorsementStats(
         voters = sortedVoters,
         proposalResolutions = proposalResolutions,
-    )
+    ))
 
-    writeVotingStrengthData(
+    addStatistics(buildVotingStrengthStats(
         voters = sortedVoters,
         proposalResolutionsByVoter = proposalResolutionsByVoter,
-    )
+    ))
 
-    writeVoterResultData(
+    addStatistics(buildVoterResultStats(
         voters = sortedVoters,
         proposalResolutionsByVoter = proposalResolutionsByVoter,
-    )
+    ))
 
-    writeVoterMutualAgreementGraph(
+    addStatistics(buildVoterMutualAgreementStats(
         voters = sortedVoters,
         proposalResolutions = proposalResolutions,
-    )
+    ))
 
-    writeVoteKindData(
+    addStatistics(buildVoteKindStats(
         voters = sortedVoters,
         voteKindsForCountsAndRates = VoteKind.values().toSet(),
         voteCountsByVoter = voteCountsByVoter,
         proposalResolutions = proposalResolutions
-    )
+    ))
 
-    writeVoterAuthorAgreementGraph(
+    addStatistics(buildVoterAuthorAgreementStats(
         voters = sortedVoters,
         authors = sortedAuthors,
         resolutionsByProposal = resolutionsByProposal,
         votesByVoter = voteCountsByVoter,
-    )
+    ))
 
-    writeVoterDeterminationStats(
+    addStatistics(buildVoterDeterminationStats(
         voters = sortedVoters,
         proposalResolutionsByVoter = proposalResolutionsByVoter,
-    )
+    ))
 
-    writeMarginStats(sortedAuthors, proposalResolutions)
+    addStatistics(buildMarginStats(sortedAuthors, proposalResolutions))
 
-    writeLengthStats(resolutionsByProposal = resolutionsByProposal)
+    addStatistics(buildLengthStats(resolutionsByProposal = resolutionsByProposal))
+
+    for (statistic in allStatistics) {
+        val ensureExhaustive = when (statistic) {
+            is Statistic.KeyValuePairs -> {
+                saveKeyValuePairs(
+                    name = statistic.name,
+                    statistic = statistic.data,
+                    keyName = statistic.keyName,
+                    valueName = statistic.valueName,
+                )
+            }
+
+            is Statistic.Graph -> {
+                saveGraph(statistic.name, statistic.plot)
+            }
+        }
+    }
 }

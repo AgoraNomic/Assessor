@@ -32,10 +32,10 @@ private fun calculateVoteToResultCounts(
 }
 
 
-fun writeVoterResultData(
+fun buildVoterResultStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
-) {
+) = buildStatistics {
     val agreementCountsByVoter = calculateVoteToResultCounts(
         voters = voters,
         proposalResolutionsByVoter = proposalResolutionsByVoter,
@@ -43,7 +43,7 @@ fun writeVoterResultData(
         targetResultAgainst = ProposalResult.REJECTED,
     )
 
-    writeStatistic(
+    yieldData(
         "voter_result_agreement_rate",
         agreementCountsByVoter.mapValues { (voter, agreementCount) ->
             agreementCount.toDouble() / proposalResolutionsByVoter.getValue(voter).count().toDouble()
@@ -57,14 +57,14 @@ fun writeVoterResultData(
         targetResultAgainst = ProposalResult.ADOPTED,
     )
 
-    writeStatistic(
+    yieldData(
         "voter_result_disagreement_rate",
         disagreementCountsByVoter.mapValues { (voter, disagreementCount) ->
             disagreementCount.toDouble() / proposalResolutionsByVoter.getValue(voter).count().toDouble()
         }.also {}
     )
 
-    writeGraph(
+    yieldGraph(
         "voter_result_agreement",
         lets_plot(data = mapOf(
             "voter" to voters.flatMap {

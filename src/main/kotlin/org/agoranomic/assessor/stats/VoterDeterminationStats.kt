@@ -79,17 +79,17 @@ private fun countVoterDecisiveTimes(
     }
 }
 
-fun writeVoterDeterminationStats(
+fun buildVoterDeterminationStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
-) {
+) = buildStatistics {
     val countsMap = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
 
     run {
         // Must use variable because overload resolution fails if we don't
         val orderedCountsMap = voters.associateWith { countsMap.getValue(it).decisiveCount }
 
-        writeStatistic(
+        yieldData(
             "voter_determination_times",
             orderedCountsMap,
         )
@@ -98,7 +98,7 @@ fun writeVoterDeterminationStats(
     // In order to ensure a hostile Map implementation doesn't screw with iteration order
     val countEntries = countsMap.entries.toList()
 
-    writeGraph(
+    yieldGraph(
         "voter_determination_counts",
         lets_plot(data = mapOf(
             "voter" to countEntries.flatMap { listOf(it.key.name, it.key.name) },

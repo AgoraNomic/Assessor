@@ -11,7 +11,10 @@ private data class VoterStrengthStats(
     val total: BigInteger,
 )
 
-fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Map<Person, List<ResolutionData>>) {
+fun buildVotingStrengthStats(
+    voters: List<Person>,
+    proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
+) = buildStatistics {
     val data = voters.associateWith { voter ->
         val resolutions = proposalResolutionsByVoter.getValue(voter)
 
@@ -31,7 +34,7 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
     run {
         val averages = data.mapValues { (_, v) -> v.average }
 
-        writeStatistic(
+        yieldData(
             "voter_strength_avg",
             averages,
         )
@@ -40,7 +43,7 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
     run {
         val mins = data.mapValues { (_, v) -> v.min }
 
-        writeStatistic(
+        yieldData(
             "voter_strength_min",
             mins,
         )
@@ -49,7 +52,7 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
     run {
         val maxs = data.mapValues { (_, v) -> v.max }
 
-        writeStatistic(
+        yieldData(
             "voter_strength_max",
             maxs,
         )
@@ -58,7 +61,7 @@ fun writeVotingStrengthData(voters: List<Person>, proposalResolutionsByVoter: Ma
     run {
         val totals = data.mapValues { (_, v) -> v.total }
 
-        writeStatistic(
+        yieldData(
             "voter_strength_cumulative",
             totals,
         )

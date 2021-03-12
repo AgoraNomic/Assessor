@@ -16,14 +16,14 @@ import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import java.math.BigInteger
 
-fun writeAuthorData(
+fun buildAuthorStats(
     authors: List<Person>,
     adoptedProposalsByAuthor: Map<Person, ProposalSet>,
     writtenCountsByAuthor: Map<Person, Int>,
-) {
+) = buildStatistics {
     val adoptedCountsByAuthor = adoptedProposalsByAuthor.mapValuesToCounts()
 
-    writeStatistic(
+    yieldData(
         "author_adopted",
         authors
             .associateWith {
@@ -32,7 +32,7 @@ fun writeAuthorData(
             .also {}
     )
 
-    writeStatistic(
+    yieldData(
         "author_adopted_rate",
         authors
             .associateWith {
@@ -46,12 +46,12 @@ fun writeAuthorData(
         adoptedProposalsByAuthor[author]?.sumOf { it.textWords().toBigInteger() } ?: BigInteger.ZERO
     }
 
-    writeStatistic(
+    yieldData(
         "author_adopted_words",
         adoptedWordsByAuthor,
     )
 
-    writeGraph(
+    yieldGraph(
         "author_written",
         lets_plot(data = mapOf(
             "author" to authors.flatMap { listOf(it.name, it.name) },
@@ -79,7 +79,7 @@ fun writeAuthorData(
         AdoptedWordsEntry(authorName = it.key.name, totalWords = it.value.intValueExact())
     }
 
-    writeGraph(
+    yieldGraph(
         "author_adopted_words",
         lets_plot(data = mapOf(
             "author" to adoptedWordsEntries.map { it.authorName },
@@ -96,14 +96,14 @@ fun writeAuthorData(
     )
 }
 
-fun writeCoauthorsData(
+fun buildCoauthorsStats(
     coauthors: List<Person>,
     adoptedProposalsByCoauthor: Map<Person, ImmutableProposalSet>,
     writtenCountsByCoauthor: Map<Person, Int>,
-) {
+) = buildStatistics {
     val adoptedCountsByCoauthor = adoptedProposalsByCoauthor.mapValuesToCounts()
 
-    writeStatistic(
+    yieldData(
         "coauthor_adopted",
         coauthors
             .associateWith {
@@ -112,7 +112,7 @@ fun writeCoauthorsData(
             .also {},
     )
 
-    writeStatistic(
+    yieldData(
         "coauthor_adopted_rate",
         coauthors
             .associateWith {

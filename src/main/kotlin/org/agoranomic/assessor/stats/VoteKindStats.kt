@@ -24,33 +24,35 @@ private fun countVotesOfKindByVoter(
     }
 }
 
-private fun writeVoteKindCountsStat(
+private fun StatisticsBuilderScope.yieldVoteKindCountsStat(
     voters: List<Person>,
     voteKinds: Set<VoteKind>,
     voteCountsByVoterByVoteKind: Map<VoteKind, Map<Person, Int>>,
 ) {
     for (voteKind in voteKinds) {
-        writeStatistic(
+        yieldData(
             "voter_votes_${voteKind.name.toLowerCase()}",
-            voters.map { it to voteCountsByVoterByVoteKind.getValue(voteKind).getValue(it) }
+            voters.associateWith { voteCountsByVoterByVoteKind.getValue(voteKind).getValue(it) }.also {},
         )
     }
 }
 
-private fun writeVoteKindRatesStat(
+private fun StatisticsBuilderScope.yieldVoteKindRatesStat(
     voters: List<Person>,
     voteKinds: Set<VoteKind>,
     voteCountRatesByVoterByVoteKind: Map<VoteKind, Map<Person, Double>>,
 ) {
     for (voteKind in voteKinds) {
-        writeStatistic(
+        // Must use also {} to satisfy type inference.
+        @Suppress("ControlFlowWithEmptyBody")
+        yieldData(
             "voter_votes_${voteKind.name.toLowerCase()}_rate",
-            voters.map { it to voteCountRatesByVoterByVoteKind.getValue(voteKind).getValue(it) },
+            voters.associateWith { voteCountRatesByVoterByVoteKind.getValue(voteKind).getValue(it) }.also {},
         )
     }
 }
 
-private fun writeVoteKindsByVoterGraph(
+private fun StatisticsBuilderScope.yieldVoteKindsByVoterGraph(
     voters: List<Person>,
     voteCountsByVoterByVoteKind: Map<VoteKind, Map<Person, Int>>,
     proposalResolutionsCount: Int,
@@ -82,7 +84,7 @@ private fun writeVoteKindsByVoterGraph(
         "kind" to voterKindSpecificationList.map { it.kind.name },
     )
 
-    writeGraph(
+    yieldGraph(
         "vote_kinds",
         lets_plot(voterKindData) +
                 geom_bar(
@@ -113,12 +115,12 @@ private fun writeVoteKindsByVoterGraph(
     )
 }
 
-fun writeVoteKindData(
+fun buildVoteKindStats(
     voters: List<Person>,
     voteKindsForCountsAndRates: Set<VoteKind>,
     voteCountsByVoter: Map<Person, Int>,
     proposalResolutions: List<ResolutionData>,
-) {
+) = buildStatistics {
     val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
         countVotesOfKindByVoter(kind, voters.toSet(), proposalResolutions)
     }
@@ -131,19 +133,19 @@ fun writeVoteKindData(
                 }
             }
 
-    writeVoteKindCountsStat(
+    yieldVoteKindCountsStat(
         voters = voters,
         voteKinds = voteKindsForCountsAndRates,
         voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
     )
 
-    writeVoteKindRatesStat(
+    yieldVoteKindRatesStat(
         voters = voters,
         voteKinds = voteKindsForCountsAndRates,
         voteCountRatesByVoterByVoteKind = voteCountRatesByVoterByVoteKind,
     )
 
-    writeVoteKindsByVoterGraph(
+    yieldVoteKindsByVoterGraph(
         voters = voters,
         voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
         proposalResolutionsCount = proposalResolutions.size,

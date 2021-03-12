@@ -11,9 +11,9 @@ import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.resolve.ProposalResult
 import org.agoranomic.assessor.lib.resolve.ResolutionData
 
-fun writeLengthStats(
+fun buildLengthStats(
     resolutionsByProposal: Map<Proposal, List<ResolutionData>>,
-) {
+) = buildStatistics {
     data class DataEntry(val words: Int, val adopted: Boolean)
 
     val proposalEntries =
@@ -23,7 +23,7 @@ fun writeLengthStats(
             }
             .sortedByDescending { if (it.adopted) 1 else 0 } // Dirty hack to force order
 
-    writeGraph(
+    yieldGraph(
         name = "proposal_length_bins",
         ggplot() +
                 geom_histogram(

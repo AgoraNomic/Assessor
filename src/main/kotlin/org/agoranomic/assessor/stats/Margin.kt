@@ -27,7 +27,7 @@ private fun Map<Person, List<ResolutionData>>.calculateMargins(): Map<Person, Li
     return this.filterValues { it.isNotEmpty() }.mapValues { (_, v) -> calculateMarginStats(v) }
 }
 
-fun writeMarginStats(authors: List<Person>, resolutions: List<ResolutionData>) {
+fun buildMarginStats(authors: List<Person>, resolutions: List<ResolutionData>) = buildStatistics {
     val resolutionsByAuthor = resolutions.groupBy { it.proposal.author }
 
     val averageAllMarginByAuthor =
@@ -44,26 +44,26 @@ fun writeMarginStats(authors: List<Person>, resolutions: List<ResolutionData>) {
             .mapValues { (_, v) -> v.filter { it.result == ProposalResult.REJECTED } }
             .calculateMargins()
 
-    writeSingleMarginStat(
+    yieldSingleMarginStat(
         authors = authors,
         marginsByAuthor = averageAllMarginByAuthor,
         kind = "all",
     )
 
-    writeSingleMarginStat(
+    yieldSingleMarginStat(
         authors = authors,
         marginsByAuthor = averageAdoptedMarginByAuthor,
         kind = "adopted",
     )
 
-    writeSingleMarginStat(
+    yieldSingleMarginStat(
         authors = authors,
         marginsByAuthor = averageRejectedMarginByAuthor,
         kind = "rejected",
     )
 }
 
-private fun writeSingleMarginStat(
+private fun StatisticsBuilderScope.yieldSingleMarginStat(
     authors: List<Person>,
     marginsByAuthor: Map<Person, List<BigDecimal>>,
     kind: String,
@@ -73,7 +73,7 @@ private fun writeSingleMarginStat(
             .filter { it in marginsByAuthor.keys }
             .associateWith { marginsByAuthor.getValue(it) }
 
-    writeMarginGraphs(
+    yieldMarginGraphs(
         authors,
         orderedMarginsByAuthor,
         name = "author_avg_${kind}_strength_margin",
@@ -85,13 +85,13 @@ private fun writeSingleMarginStat(
         v.map { it.toDouble() }.onEach { check(it.isFinite()) }.average()
     }
 
-    writeStatistic(
+    yieldData(
         "author_avg_${kind}_strength_margin",
         averageMarginByAuthor,
     )
 }
 
-private fun writeMarginGraphs(
+private fun StatisticsBuilderScope.yieldMarginGraphs(
     authors: List<Person>,
     marginsByAuthor: Map<Person, List<BigDecimal>>,
     name: String,
@@ -107,7 +107,7 @@ private fun writeMarginGraphs(
         )
     }
 
-    writeGraph(
+    yieldGraph(
         name,
         lets_plot(mapOf(
             "author" to marginAverageEntries.map { it.authorName },
@@ -127,7 +127,7 @@ private fun writeMarginGraphs(
         margins.map { margin -> author.name to margin.toDouble().also { check(it.isFinite()) } }
     }
 
-    writeGraph(
+    yieldGraph(
         name + "_box_plot",
         lets_plot(mapOf(
             "author" to boxPlotData.map { it.first },

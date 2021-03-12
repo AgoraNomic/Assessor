@@ -12,12 +12,12 @@ import org.agoranomic.assessor.lib.proposal.Proposal
 import org.agoranomic.assessor.lib.resolve.ResolutionData
 import org.agoranomic.assessor.lib.vote.VoteKind
 
-fun writeVoterAuthorAgreementGraph(
+fun buildVoterAuthorAgreementStats(
     voters: List<Person>,
     authors: List<Person>,
     resolutionsByProposal: Map<Proposal, List<ResolutionData>>,
     votesByVoter: Map<Person, Int>,
-) {
+) = buildStatistics {
     data class VoterAuthorSpecification(
         val voter: Person,
         val author: Person,
@@ -53,7 +53,7 @@ fun writeVoterAuthorAgreementGraph(
     val voterDataList = voterAuthorAgreementRates.map { it.first.voter }
     val rateDataList = voterAuthorAgreementRates.map { it.second }
 
-    writeGraph(
+    yieldGraph(
         "voter_author_agreement_rates",
         lets_plot() +
                 geom_tile(
@@ -87,11 +87,11 @@ fun writeVoterAuthorAgreementGraph(
     )
 }
 
-fun writeVoterMutualAgreementGraph(
+fun buildVoterMutualAgreementStats(
     voters: List<Person>,
     proposalResolutions: List<ResolutionData>,
-) {
-    writeGraph(
+) = buildStatistics {
+    yieldGraph(
         "voter_agreement",
         CorrPlot(
             data = voters

@@ -109,7 +109,7 @@ private fun endorsementTotalsFor(
     )
 }
 
-private fun writeEndorsementsGraph(
+private fun StatisticsBuilderScope.yieldEndorsementsGraph(
     tag: String,
     voters: List<Person>,
     endorsementSpecifications: List<EndorsementCountSpecification>,
@@ -120,7 +120,7 @@ private fun writeEndorsementsGraph(
     val endorseeData = endorsementSpecifications.map { it.endorsee }
     val countData = endorsementSpecifications.map { it.count }
 
-    writeGraph(
+    yieldGraph(
         "endorsement_counts_${tag}",
         lets_plot(
             data = mapOf(
@@ -157,7 +157,7 @@ private fun writeEndorsementsGraph(
     )
 }
 
-private fun writeEndorseeVsEndorserGraph(
+private fun StatisticsBuilderScope.yieldEndorseeVsEndorserGraph(
     tag: String,
     endorsementTotals: EndorsementTotals,
 ) {
@@ -185,8 +185,7 @@ private fun writeEndorseeVsEndorserGraph(
 
     val allEntries = endorseeEntries + endorserEntries
 
-
-    writeGraph(
+    yieldGraph(
         "endorsee_endorser_${tag}",
         lets_plot(
             data = mapOf(
@@ -207,37 +206,37 @@ private fun writeEndorseeVsEndorserGraph(
     )
 }
 
-private fun writeEndorsementCountsStatistic(
+private fun StatisticsBuilderScope.yieldEndorsementCountsStatistic(
     tag: String,
     endorsementTotals: EndorsementTotals,
 ) {
-    writeStatistic(
+    yieldData(
         "voter_endorsee_${tag}_times",
         endorsementTotals.endorseeTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
     )
 
-    writeStatistic(
+    yieldData(
         "voter_endorser_${tag}_times",
         endorsementTotals.endorserTimesByPerson.mapKeys { (k, _) -> Person(name = k) },
     )
 }
 
-private fun doWriteEndorsementsData(
+private fun StatisticsBuilderScope.doYieldEndorsementStats(
     tag: String,
     voters: List<Person>,
     endorsementsData: List<EndorsementCountSpecification>,
 ) {
     val endorsementTotals = endorsementTotalsFor(voters, endorsementsData)
 
-    writeEndorsementsGraph(tag, voters, endorsementsData)
-    writeEndorseeVsEndorserGraph(tag, endorsementTotals)
-    writeEndorsementCountsStatistic(tag, endorsementTotals)
+    yieldEndorsementsGraph(tag, voters, endorsementsData)
+    yieldEndorseeVsEndorserGraph(tag, endorsementTotals)
+    yieldEndorsementCountsStatistic(tag, endorsementTotals)
 }
 
-fun writeEndorsementsData(voters: List<Person>, proposalResolutions: List<ResolutionData>) {
+fun buildEndorsementStats(voters: List<Person>, proposalResolutions: List<ResolutionData>) = buildStatistics {
     val allEndorsementsData = endorsementSpecificationsOf(proposalResolutions, excludeTotalVotes = false)
     val nonTotalEndorsementsData = endorsementSpecificationsOf(proposalResolutions, excludeTotalVotes = true)
 
-    doWriteEndorsementsData("all", voters, allEndorsementsData)
-    doWriteEndorsementsData("non_total", voters, nonTotalEndorsementsData)
+    doYieldEndorsementStats("all", voters, allEndorsementsData)
+    doYieldEndorsementStats("non_total", voters, nonTotalEndorsementsData)
 }
