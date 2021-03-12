@@ -121,6 +121,14 @@ fun buildVoterDeterminationStats(
         )
     )
 
+    @Suppress("ControlFlowWithEmptyBody") // Needed to satisfy type inference
+    yieldData(
+        "voter_determinative_proposals",
+        decisiveDecisionsByVoter
+            .mapValues { (_, v) -> v.sorted().joinToString(", ", prefix = "[", postfix = "]") }
+            .also {},
+    )
+
     val countsMap = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
 
     run {
