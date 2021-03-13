@@ -1,5 +1,6 @@
 package org.agoranomic.assessor.stats
 
+import io.github.random_internet_cat.util.requireAllAreDistinct
 import jetbrains.letsPlot.Stat
 import jetbrains.letsPlot.geom.geom_bar
 import jetbrains.letsPlot.ggsize
@@ -99,17 +100,19 @@ fun buildVoterDeterminationStats(
     voters: List<Person>,
     proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
 ) = buildStatistics {
-    val decisiveDecisionsByVoter = voters.associateWith { voter ->
+    val decisiveProposalsByVoter = voters.associateWith { voter ->
         proposalResolutionsByVoter
             .getValue(voter)
             .filter { voterIsDeterminativeOn(voter, it) }
-            .map { it.proposal.number }.sorted()
+            .map { it.proposal.number }
+            .also { it.requireAllAreDistinct() } // Don't want to deal with multiple resolutions of the same proposal
+            .sorted()
     }
 
     yield(
         Statistic.KeyValuePairs(
             name = "proposal_determinative_voter_count",
-            data = decisiveDecisionsByVoter
+            data = decisiveProposalsByVoter
                 .values
                 .flatten()
                 .valueCounts()
@@ -124,7 +127,7 @@ fun buildVoterDeterminationStats(
     @Suppress("ControlFlowWithEmptyBody") // Needed to satisfy type inference
     yieldData(
         "voter_determinative_proposals",
-        decisiveDecisionsByVoter
+        decisiveProposalsByVoter
             .mapValues { (_, v) -> v.sorted().joinToString(", ", prefix = "[", postfix = "]") }
             .also {},
     )
