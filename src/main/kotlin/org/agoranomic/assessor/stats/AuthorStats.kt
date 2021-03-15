@@ -12,16 +12,15 @@ import jetbrains.letsPlot.sampling.sampling_none
 import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
 import org.agoranomic.assessor.lib.Person
-import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
-import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import java.math.BigInteger
 
 fun buildAuthorStats(
     authors: List<Person>,
-    adoptedProposalsByAuthor: Map<Person, ProposalSet>,
-    writtenCountsByAuthor: Map<Person, Int>,
+    data: AssessmentsDerivedDataCache,
 ) = buildStatistics {
-    val adoptedCountsByAuthor = adoptedProposalsByAuthor.mapValuesToCounts()
+    val writtenCountsByAuthor = data.allProposalsData.countsByAuthor
+    val adoptedProposalsByAuthor = data.adoptedProposalsData.groupedByAuthor
+    val adoptedCountsByAuthor = data.adoptedProposalsData.countsByAuthor
 
     yieldData(
         "author_adopted",
@@ -98,10 +97,10 @@ fun buildAuthorStats(
 
 fun buildCoauthorsStats(
     coauthors: List<Person>,
-    adoptedProposalsByCoauthor: Map<Person, ImmutableProposalSet>,
-    writtenCountsByCoauthor: Map<Person, Int>,
+    data: AssessmentsDerivedDataCache,
 ) = buildStatistics {
-    val adoptedCountsByCoauthor = adoptedProposalsByCoauthor.mapValuesToCounts()
+    val writtenCountsByCoauthor = data.allProposalsData.countsByCoauthor
+    val adoptedCountsByCoauthor = data.adoptedProposalsData.countsByCoauthor
 
     yieldData(
         "coauthor_adopted",

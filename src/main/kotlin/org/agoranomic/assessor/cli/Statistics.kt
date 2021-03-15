@@ -5,10 +5,7 @@ import org.agoranomic.assessor.lib.Person
 import org.agoranomic.assessor.lib.proposal.proposal_set.ImmutableProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.ProposalSet
 import org.agoranomic.assessor.lib.proposal.proposal_set.toImmutableProposalSet
-import org.agoranomic.assessor.lib.proposal.proposal_set.toProposalSet
-import org.agoranomic.assessor.lib.resolve.ProposalResolutionMap
-import org.agoranomic.assessor.lib.resolve.ProposalResult
-import org.agoranomic.assessor.lib.resolve.resolve
+import org.agoranomic.assessor.lib.resolve.AssessmentData
 import org.agoranomic.assessor.lib.vote.VoteKind
 import org.agoranomic.assessor.stats.*
 
@@ -27,47 +24,16 @@ private fun ProposalSet.groupByCoauthor(): Map<Person, ImmutableProposalSet> {
 
 private fun <K, V> Iterable<Map.Entry<K, V>>.toMap() = associate { it.toPair() }
 
-private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): List<Statistic> {
-    val proposals = assessmentResolutions.flatMap { it.proposals }.toProposalSet()
+private fun buildAllStats(assessments: List<AssessmentData>): List<Statistic> {
+    val dataWithCache = AssessmentsDerivedDataCache(assessments)
 
-    val resolutionsByProposal = proposals.associateWith { proposal ->
-        assessmentResolutions.filter { it.proposals.contains(proposal.number) }.map { it.resolutionOf(proposal.number) }
-    }
+    val sortedAuthors =
+        dataWithCache.allAuthors.sortedByDescending { dataWithCache.allProposalsData.countsByAuthor.getValue(it) }
 
-    val proposalResolutions = resolutionsByProposal.values.flatten()
+    val sortedCoauthors =
+        dataWithCache.allCoauthors.sortedByDescending { dataWithCache.allProposalsData.countsByCoauthor.getValue(it) }
 
-    val proposalsByAuthor = proposals.groupByAuthor()
-    val proposalsByCoauthor = proposals.groupByCoauthor()
-
-    val allAuthors = proposalsByAuthor.keys
-    val allCoauthors = proposalsByCoauthor.keys
-    val allVoters = proposalResolutions.asSequence().flatMap { it.votes.voters }.toSet()
-
-    val adoptedProposals =
-        resolutionsByProposal
-            .entries
-            .filter { (_, resolutions) -> resolutions.any { it.result == ProposalResult.ADOPTED } }
-            .map { it.key }
-            .toProposalSet()
-
-    val adoptedProposalsByAuthor = adoptedProposals.groupByAuthor()
-    val adoptedProposalsByCoauthor = adoptedProposals.groupByCoauthor()
-
-    val writtenCountsByAuthor = proposalsByAuthor.mapValuesToCounts()
-
-    val writtenCountsByCoauthor = proposalsByCoauthor.mapValuesToCounts()
-
-    val sortedAuthors = allAuthors.sortedByDescending { writtenCountsByAuthor.getValue(it) }
-    val sortedCoauthors = allCoauthors.sortedByDescending { writtenCountsByCoauthor.getValue(it) }
-
-    val proposalResolutionsByVoter =
-        allVoters
-            .associateWith { voter ->
-                proposalResolutions.filter { resolution -> resolution.votes.voters.contains(voter) }
-            }
-
-    val voteCountsByVoter = proposalResolutionsByVoter.mapValuesToCounts()
-    val sortedVoters = allVoters.sortedByDescending { voteCountsByVoter.getValue(it) }
+    val sortedVoters = dataWithCache.allVoters.sortedByDescending { dataWithCache.voteCountsByVoter.getValue(it) }
 
     val allStatistics = mutableListOf<Statistic>()
 
@@ -78,58 +44,56 @@ private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): L
     addStatistics(buildStatistics {
         yieldData(
             "author_written",
-            writtenCountsByAuthor.entries.sortedByDescending { it.value }.toMap(),
+            dataWithCache.allProposalsData.countsByAuthor.entries.sortedByDescending { it.value }.toMap(),
         )
 
         yieldData(
             "coauthor_written",
-            writtenCountsByCoauthor.entries.sortedByDescending { it.value }.toMap(),
+            dataWithCache.allProposalsData.countsByCoauthor.entries.sortedByDescending { it.value }.toMap(),
         )
 
-        yieldData("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.toMap())
+        yieldData("voter_votes", dataWithCache.voteCountsByVoter.entries.sortedByDescending { it.value }.toMap())
     })
 
     addStatistics(
         buildAuthorStats(
             authors = sortedAuthors,
-            adoptedProposalsByAuthor = adoptedProposalsByAuthor,
-            writtenCountsByAuthor = writtenCountsByAuthor,
+            data = dataWithCache,
         )
     )
 
     addStatistics(
         buildCoauthorsStats(
             coauthors = sortedCoauthors,
-            adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
-            writtenCountsByCoauthor = writtenCountsByCoauthor,
+            data = dataWithCache,
         )
     )
 
     addStatistics(
         buildEndorsementStats(
             voters = sortedVoters,
-            proposalResolutions = proposalResolutions,
+            proposalResolutions = dataWithCache.proposalResolutions,
         )
     )
 
     addStatistics(
         buildVotingStrengthStats(
             voters = sortedVoters,
-            proposalResolutionsByVoter = proposalResolutionsByVoter,
+            proposalResolutionsByVoter = dataWithCache.proposalResolutionsByVoter,
         )
     )
 
     addStatistics(
         buildVoterResultStats(
             voters = sortedVoters,
-            proposalResolutionsByVoter = proposalResolutionsByVoter,
+            proposalResolutionsByVoter = dataWithCache.proposalResolutionsByVoter,
         )
     )
 
     addStatistics(
         buildVoterMutualAgreementStats(
             voters = sortedVoters,
-            proposalResolutions = proposalResolutions,
+            proposalResolutions = dataWithCache.proposalResolutions,
         )
     )
 
@@ -137,8 +101,7 @@ private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): L
         buildVoteKindStats(
             voters = sortedVoters,
             voteKindsForCountsAndRates = VoteKind.values().toSet(),
-            voteCountsByVoter = voteCountsByVoter,
-            proposalResolutions = proposalResolutions
+            data = dataWithCache,
         )
     )
 
@@ -146,26 +109,27 @@ private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): L
         buildVoterAuthorAgreementStats(
             voters = sortedVoters,
             authors = sortedAuthors,
-            resolutionsByProposal = resolutionsByProposal,
-            votesByVoter = voteCountsByVoter,
+            resolutionsByProposal = dataWithCache.resolutionsByProposal,
+            votesByVoter = dataWithCache.voteCountsByVoter,
         )
     )
 
     addStatistics(
         buildVoterDeterminationStats(
             voters = sortedVoters,
-            proposalResolutionsByVoter = proposalResolutionsByVoter,
+            proposalResolutionsByVoter = dataWithCache.proposalResolutionsByVoter,
         )
     )
 
-    addStatistics(buildMarginStats(sortedAuthors, proposalResolutions))
+    addStatistics(buildMarginStats(sortedAuthors, dataWithCache.proposalResolutions))
 
-    addStatistics(buildLengthStats(resolutionsByProposal = resolutionsByProposal))
+    addStatistics(buildLengthStats(resolutionsByProposal = dataWithCache.resolutionsByProposal))
+
     return allStatistics
 }
 
 fun main() {
-    val assessmentResolutions = findAssessments().map { resolve(it) }
+    val assessmentResolutions = findAssessments()
 
     val allStatistics = buildAllStats(assessmentResolutions)
 

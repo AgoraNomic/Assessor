@@ -118,18 +118,17 @@ private fun StatisticsBuilderScope.yieldVoteKindsByVoterGraph(
 fun buildVoteKindStats(
     voters: List<Person>,
     voteKindsForCountsAndRates: Set<VoteKind>,
-    voteCountsByVoter: Map<Person, Int>,
-    proposalResolutions: List<ResolutionData>,
+    data: AssessmentsDerivedDataCache,
 ) = buildStatistics {
     val voteCountsByVoterByVoteKind = VoteKind.values().associateWith { kind ->
-        countVotesOfKindByVoter(kind, voters.toSet(), proposalResolutions)
+        countVotesOfKindByVoter(kind, voters.toSet(), data.proposalResolutions)
     }
 
     val voteCountRatesByVoterByVoteKind =
         voteCountsByVoterByVoteKind
             .mapValues { (voteKind, countsMap) ->
                 countsMap.mapValues { (voter, count) ->
-                    count.toDouble() / voteCountsByVoter.getValue(voter).toDouble()
+                    count.toDouble() / data.voteCountsByVoter.getValue(voter).toDouble()
                 }
             }
 
@@ -148,6 +147,6 @@ fun buildVoteKindStats(
     yieldVoteKindsByVoterGraph(
         voters = voters,
         voteCountsByVoterByVoteKind = voteCountsByVoterByVoteKind,
-        proposalResolutionsCount = proposalResolutions.size,
+        proposalResolutionsCount = data.proposalResolutions.size,
     )
 }

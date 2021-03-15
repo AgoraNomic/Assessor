@@ -152,7 +152,12 @@ fun buildVoterDeterminationStats(
         lets_plot(data = mapOf(
             "voter" to countEntries.flatMap { listOf(it.key.name, it.key.name) },
             "kind" to countEntries.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
-            "count" to countEntries.flatMap { listOf(it.value.counts.decisiveCount, it.value.counts.indecisiveCount) }
+            "count" to countEntries.flatMap {
+                listOf(
+                    it.value.counts.decisiveCount,
+                    it.value.counts.indecisiveCount
+                )
+            }
         )) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "voter"
