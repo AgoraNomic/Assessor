@@ -14,6 +14,8 @@ data class SinglePersonPendingVoteMap(private val map: ImmutableMap<ProposalNumb
         map[proposalNumber] ?: throw IllegalArgumentException("No vote for proposal $proposalNumber")
 
     fun hasVoteFor(proposal: ProposalNumber) = proposals.contains(proposal)
+
+    fun toMap(): ImmutableMap<ProposalNumber, ResolvingVote> = map
 }
 
 data class MultiPersonPendingVoteMap(private val data: ImmutableMap<Person, SinglePersonPendingVoteMap>) {
@@ -27,4 +29,6 @@ data class MultiPersonPendingVoteMap(private val data: ImmutableMap<Person, Sing
         data[person] ?: throw IllegalArgumentException("No votes for person ${person.name}")
 
     fun hasVotesFor(person: Person) = voters.contains(person)
+
+    fun toMap(): ImmutableMap<Person, SinglePersonPendingVoteMap> = data
 }
