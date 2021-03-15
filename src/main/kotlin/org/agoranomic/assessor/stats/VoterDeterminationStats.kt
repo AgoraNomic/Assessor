@@ -176,6 +176,18 @@ fun buildVoterDeterminationStats(
         determinativeDataMap.mapValues { (_, v) -> v.counts.decisiveCount }.also {},
     )
 
+    @Suppress("ControlFlowWithEmptyBody") // Needed to satisfy type inference
+    yieldData(
+        "voter_determination_rate",
+        determinativeDataMap
+            .mapValues { (_, v) ->
+                with(v.counts) {
+                    decisiveCount.toDouble() / (decisiveCount + indecisiveCount).toDouble()
+                }
+            }
+            .also {}
+    )
+
     // Order is safe because determinativeDataMap preserves iteration order by contract
     yieldGraph(
         "voter_determination_counts",
