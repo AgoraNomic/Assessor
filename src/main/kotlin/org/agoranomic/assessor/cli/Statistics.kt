@@ -89,56 +89,74 @@ private fun buildAllStats(assessmentResolutions: List<ProposalResolutionMap>): L
         yieldData("voter_votes", voteCountsByVoter.entries.sortedByDescending { it.value }.toMap())
     })
 
-    addStatistics(buildAuthorStats(
-        authors = sortedAuthors,
-        adoptedProposalsByAuthor = adoptedProposalsByAuthor,
-        writtenCountsByAuthor = writtenCountsByAuthor,
-    ))
+    addStatistics(
+        buildAuthorStats(
+            authors = sortedAuthors,
+            adoptedProposalsByAuthor = adoptedProposalsByAuthor,
+            writtenCountsByAuthor = writtenCountsByAuthor,
+        )
+    )
 
-    addStatistics(buildCoauthorsStats(
-        coauthors = sortedCoauthors,
-        adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
-        writtenCountsByCoauthor = writtenCountsByCoauthor,
-    ))
+    addStatistics(
+        buildCoauthorsStats(
+            coauthors = sortedCoauthors,
+            adoptedProposalsByCoauthor = adoptedProposalsByCoauthor,
+            writtenCountsByCoauthor = writtenCountsByCoauthor,
+        )
+    )
 
-    addStatistics(buildEndorsementStats(
-        voters = sortedVoters,
-        proposalResolutions = proposalResolutions,
-    ))
+    addStatistics(
+        buildEndorsementStats(
+            voters = sortedVoters,
+            proposalResolutions = proposalResolutions,
+        )
+    )
 
-    addStatistics(buildVotingStrengthStats(
-        voters = sortedVoters,
-        proposalResolutionsByVoter = proposalResolutionsByVoter,
-    ))
+    addStatistics(
+        buildVotingStrengthStats(
+            voters = sortedVoters,
+            proposalResolutionsByVoter = proposalResolutionsByVoter,
+        )
+    )
 
-    addStatistics(buildVoterResultStats(
-        voters = sortedVoters,
-        proposalResolutionsByVoter = proposalResolutionsByVoter,
-    ))
+    addStatistics(
+        buildVoterResultStats(
+            voters = sortedVoters,
+            proposalResolutionsByVoter = proposalResolutionsByVoter,
+        )
+    )
 
-    addStatistics(buildVoterMutualAgreementStats(
-        voters = sortedVoters,
-        proposalResolutions = proposalResolutions,
-    ))
+    addStatistics(
+        buildVoterMutualAgreementStats(
+            voters = sortedVoters,
+            proposalResolutions = proposalResolutions,
+        )
+    )
 
-    addStatistics(buildVoteKindStats(
-        voters = sortedVoters,
-        voteKindsForCountsAndRates = VoteKind.values().toSet(),
-        voteCountsByVoter = voteCountsByVoter,
-        proposalResolutions = proposalResolutions
-    ))
+    addStatistics(
+        buildVoteKindStats(
+            voters = sortedVoters,
+            voteKindsForCountsAndRates = VoteKind.values().toSet(),
+            voteCountsByVoter = voteCountsByVoter,
+            proposalResolutions = proposalResolutions
+        )
+    )
 
-    addStatistics(buildVoterAuthorAgreementStats(
-        voters = sortedVoters,
-        authors = sortedAuthors,
-        resolutionsByProposal = resolutionsByProposal,
-        votesByVoter = voteCountsByVoter,
-    ))
+    addStatistics(
+        buildVoterAuthorAgreementStats(
+            voters = sortedVoters,
+            authors = sortedAuthors,
+            resolutionsByProposal = resolutionsByProposal,
+            votesByVoter = voteCountsByVoter,
+        )
+    )
 
-    addStatistics(buildVoterDeterminationStats(
-        voters = sortedVoters,
-        proposalResolutionsByVoter = proposalResolutionsByVoter,
-    ))
+    addStatistics(
+        buildVoterDeterminationStats(
+            voters = sortedVoters,
+            proposalResolutionsByVoter = proposalResolutionsByVoter,
+        )
+    )
 
     addStatistics(buildMarginStats(sortedAuthors, proposalResolutions))
 
