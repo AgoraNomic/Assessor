@@ -21,7 +21,8 @@ fun buildLengthStats(
             .map { entry ->
                 DataEntry(entry.key.textWords(), entry.value.any { it.result == ProposalResult.ADOPTED })
             }
-            .sortedByDescending { if (it.adopted) 1 else 0 } // Dirty hack to force order
+            .partition { it.adopted }
+            .let { (adopted, nonAdopted) -> adopted + nonAdopted } // Force order
 
     yieldGraph(
         name = "proposal_length_bins",
