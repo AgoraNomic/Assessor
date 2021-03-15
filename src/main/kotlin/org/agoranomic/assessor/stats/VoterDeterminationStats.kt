@@ -12,12 +12,15 @@ import jetbrains.letsPlot.scale.scale_x_discrete
 import jetbrains.letsPlot.scale.scale_y_continuous
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toPersistentMap
 import org.agoranomic.assessor.lib.Person
+import org.agoranomic.assessor.lib.proposal.ProposalNumber
+import org.agoranomic.assessor.lib.resolve.AssessmentData
 import org.agoranomic.assessor.lib.resolve.ProposalResult
-import org.agoranomic.assessor.lib.resolve.ResolutionData
 import org.agoranomic.assessor.lib.resolve.resolve
-import org.agoranomic.assessor.lib.vote.ResolvingVoteResolvedVote
-import org.agoranomic.assessor.lib.vote.SimplifiedSingleProposalVoteMap
+import org.agoranomic.assessor.lib.vote.MultiPersonPendingVoteMap
+import org.agoranomic.assessor.lib.vote.ResolvedVote
+import org.agoranomic.assessor.lib.vote.SinglePersonPendingVoteMap
 import org.agoranomic.assessor.lib.vote.VoteKind
 
 private data class VoterDeterminationCounts(
@@ -25,40 +28,58 @@ private data class VoterDeterminationCounts(
     val indecisiveCount: Int,
 )
 
-@OptIn(ExperimentalStdlibApi::class)
-private fun voterIsDeterminativeOn(voter: Person, resolution: ResolutionData): Boolean {
+fun SinglePersonPendingVoteMap.withChangedVote(
+    proposal: ProposalNumber,
+    newVote: VoteKind,
+): SinglePersonPendingVoteMap {
+    return SinglePersonPendingVoteMap(toMap().toPersistentMap().put(proposal, ResolvedVote(newVote)))
+}
+
+fun MultiPersonPendingVoteMap.withChangedVote(
+    person: Person,
+    proposal: ProposalNumber,
+    newVote: VoteKind,
+): MultiPersonPendingVoteMap {
+    return MultiPersonPendingVoteMap(
+        toMap().toPersistentMap().put(person, votesFor(person).withChangedVote(proposal, newVote)),
+    )
+}
+
+private fun VoteKind.oppositeVote() = when (this) {
+    VoteKind.FOR -> VoteKind.AGAINST
+    VoteKind.AGAINST -> VoteKind.FOR
+    else -> error("Unexpected vote kind")
+}
+
+private fun voterIsDeterminativeOn(voter: Person, decision: DecisionSpecification): Boolean {
+    val resolution = resolve(decision.assessment).resolutionOf(decision.proposalNumber)
+    val origVote = resolution.votes.voteFor(voter)
+
     if (resolution.result == ProposalResult.FAILED_QUORUM) return false
-    if (resolution.votes.voteFor(voter) == VoteKind.PRESENT) return false
+    if (origVote == VoteKind.PRESENT) return false
+
+    val newVote = origVote.oppositeVote()
 
     val origResult = resolution.result
 
     val newResult = resolve(
-        proposal = resolution.proposal,
-        quorum = resolution.quorum,
-        votingStrengthMap = resolution.votingStrengths,
-        votes = SimplifiedSingleProposalVoteMap(
-            resolution.votes.toMap().toMutableMap().apply {
-                put(
-                    voter,
-                    ResolvingVoteResolvedVote(
-                        stepDescriptions = emptyList(),
-                        resolution = when (resolution.votes.voteFor(voter)) {
-                            VoteKind.FOR -> VoteKind.AGAINST
-                            VoteKind.AGAINST -> VoteKind.FOR
-                            else -> error("Unexpected vote kind")
-                        },
-                    )
-                )
-            }
+        decision.assessment.copy(
+            votes = decision.assessment.votes.withChangedVote(
+                person = voter,
+                proposal = decision.proposalNumber,
+                newVote = newVote,
+            ),
         )
-    ).result
+    ).resolutionOf(decision.proposalNumber).result
 
     return newResult != origResult
 }
 
+private data class DecisionSpecification(val assessment: AssessmentData, val proposalNumber: ProposalNumber)
+
 private data class VoterDeterminationData(
-    val determinativeResolutions: ImmutableList<ResolutionData>,
-    val nondeterminativeResolutions: ImmutableList<ResolutionData>,
+    val determinativeResolutions: ImmutableList<DecisionSpecification>,
+    val nondeterminativeResolutions: ImmutableList<DecisionSpecification>,
 ) {
     val counts by lazy {
         VoterDeterminationCounts(
@@ -78,16 +99,28 @@ private data class VoterDeterminationData(
  *
  * A voter is otherwise _indecisive_ on that resolution.
  */
-private fun countVoterDecisiveTimes(
+private fun determinativeDecisionsByVoter(
     voters: List<Person>,
-    proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
+    assessments: List<AssessmentData>,
 ): Map<Person, VoterDeterminationData> {
-    return voters.associateWith { voter ->
-        val resolutions = proposalResolutionsByVoter.getValue(voter)
+    val resolutions = assessments.associateWith { resolve(it) }
 
-        val (determinative, nondeterminative) = resolutions.partition {
-            voterIsDeterminativeOn(voter, it)
-        }
+    return voters.associateWith { voter ->
+        val (determinative, nondeterminative) =
+            resolutions
+                .entries
+                .flatMap { (assessment, resolution) ->
+                    resolution
+                        .proposalResolutions
+                        .filter { it.votes.voters.contains(voter) }
+                        .map { assessment to it.proposal.number }
+                }
+                .map { (assessment, proposalNumber) ->
+                    DecisionSpecification(assessment, proposalNumber)
+                }
+                .partition {
+                    voterIsDeterminativeOn(voter, it)
+                }
 
         VoterDeterminationData(
             determinativeResolutions = determinative.toImmutableList(),
@@ -98,27 +131,26 @@ private fun countVoterDecisiveTimes(
 
 fun buildVoterDeterminationStats(
     voters: List<Person>,
-    proposalResolutionsByVoter: Map<Person, List<ResolutionData>>,
+    data: AssessmentsDerivedDataCache,
 ) = buildStatistics {
-    val decisiveProposalsByVoter = voters.associateWith { voter ->
-        proposalResolutionsByVoter
-            .getValue(voter)
-            .filter { voterIsDeterminativeOn(voter, it) }
-            .map { it.proposal.number }
-            .also { it.requireAllAreDistinct() } // Don't want to deal with multiple resolutions of the same proposal
-            .sorted()
+    val determinativeDataMap = determinativeDecisionsByVoter(voters, data.assessments).let { determinativeData ->
+        voters.associateWith { determinativeData.getValue(it) }
     }
+
+    // Don't want to deal with the case where a voter is determinative on the same proposal twice
+    determinativeDataMap.values.forEach { it.determinativeResolutions.requireAllAreDistinct() }
 
     yield(
         Statistic.KeyValuePairs(
             name = "proposal_determinative_voter_count",
-            data = decisiveProposalsByVoter
+            data = determinativeDataMap
                 .values
+                .map { it.determinativeResolutions }
                 .flatten()
                 .valueCounts()
                 .entries
                 .sortedByDescending { it.value }
-                .map { it.key.toString() to it.value.toString() },
+                .map { it.key.proposalNumber.toString() to it.value.toString() },
             keyName = "Proposal",
             valueName = "Determinative voter count",
         )
@@ -127,32 +159,30 @@ fun buildVoterDeterminationStats(
     @Suppress("ControlFlowWithEmptyBody") // Needed to satisfy type inference
     yieldData(
         "voter_determinative_proposals",
-        decisiveProposalsByVoter
-            .mapValues { (_, v) -> v.sorted().joinToString(", ", prefix = "[", postfix = "]") }
+        determinativeDataMap
+            .mapValues { (_, determinationData) ->
+                determinationData
+                    .determinativeResolutions
+                    .map { it.proposalNumber }
+                    .sorted()
+                    .joinToString(", ", prefix = "[", postfix = "]")
+            }
             .also {},
     )
 
-    val countsMap = countVoterDecisiveTimes(voters, proposalResolutionsByVoter)
+    @Suppress("ControlFlowWithEmptyBody") // Needed to satisfy type inference
+    yieldData(
+        "voter_determination_times",
+        determinativeDataMap.mapValues { (_, v) -> v.counts.decisiveCount }.also {},
+    )
 
-    run {
-        // Must use variable because overload resolution fails if we don't
-        val orderedCountsMap = voters.associateWith { countsMap.getValue(it).counts.decisiveCount }
-
-        yieldData(
-            "voter_determination_times",
-            orderedCountsMap,
-        )
-    }
-
-    // In order to ensure a hostile Map implementation doesn't screw with iteration order
-    val countEntries = countsMap.entries.toList()
-
+    // Order is safe because determinativeDataMap preserves iteration order by contract
     yieldGraph(
         "voter_determination_counts",
         lets_plot(data = mapOf(
-            "voter" to countEntries.flatMap { listOf(it.key.name, it.key.name) },
-            "kind" to countEntries.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
-            "count" to countEntries.flatMap {
+            "voter" to determinativeDataMap.flatMap { listOf(it.key.name, it.key.name) },
+            "kind" to determinativeDataMap.flatMap { listOf("DETERMINATIVE", "NON-DETERMINATIVE") },
+            "count" to determinativeDataMap.flatMap {
                 listOf(
                     it.value.counts.decisiveCount,
                     it.value.counts.indecisiveCount

@@ -117,7 +117,7 @@ private fun buildAllStats(assessments: List<AssessmentData>): List<Statistic> {
     addStatistics(
         buildVoterDeterminationStats(
             voters = sortedVoters,
-            proposalResolutionsByVoter = dataWithCache.proposalResolutionsByVoter,
+            data = dataWithCache,
         )
     )
 
