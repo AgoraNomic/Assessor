@@ -66,17 +66,19 @@ fun buildVoterResultStats(
 
     yieldGraph(
         "voter_result_agreement",
-        lets_plot(data = mapOf(
-            "voter" to voters.flatMap {
-                listOf(it.name, it.name)
-            },
-            "count" to voters.flatMap {
-                listOf(agreementCountsByVoter.getValue(it), disagreementCountsByVoter.getValue(it))
-            },
-            "kind" to voters.flatMap {
-                listOf("AGREEMENT", "DISAGREEMENT")
-            },
-        )) +
+        lets_plot(
+            data = mapOf(
+                "voter" to voters.flatMap {
+                    listOf(it.name, it.name)
+                },
+                "count" to voters.flatMap {
+                    listOf(agreementCountsByVoter.getValue(it), disagreementCountsByVoter.getValue(it))
+                },
+                "kind" to voters.flatMap {
+                    listOf("AGREEMENT", "DISAGREEMENT")
+                },
+            )
+        ) +
                 geom_bar(stat = Stat.identity, sampling = sampling_none) {
                     x = "voter"
                     y = "count"
